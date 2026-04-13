@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <div class="topbar">
   <div>
     <h1>Dashboard presa in carico furgoni</h1>
@@ -9,80 +10,104 @@
 </div>
 
 <div class="grid grid-3">
-  <div class="card"><div>Assegnazioni attive</div><div class="stats">{{ active_count }}</div></div>
-  <div class="card"><div>Riconsegne completate</div><div class="stats">{{ completed_count }}</div></div>
-  <div class="card"><div>Furgoni censiti</div><div class="stats">{{ vans|length }}</div></div>
-</div>
-
-<div class="grid grid-2">
   <div class="card">
-    <h2>Nuovo autista</h2>
-    <form method="post" action="{{ url_for('create_driver') }}">
-      <input type="text" name="full_name" placeholder="Nome e cognome" required>
-      <input type="text" name="phone" placeholder="Telefono">
-      <input type="email" name="email" placeholder="Email">
-      <button type="submit">Salva autista</button>
-    </form>
+    <div>Assegnazioni attive</div>
+    <div class="stats">{{ active_count }}</div>
   </div>
-
   <div class="card">
-    <h2>Nuovo furgone</h2>
-    <form method="post" action="{{ url_for('create_van') }}">
-      <input type="text" name="plate" placeholder="Targa" required>
-      <input type="text" name="model" placeholder="Modello" required>
-      <input type="number" name="current_km" placeholder="KM attuali">
-      <button type="submit">Salva furgone</button>
-    </form>
+    <div>Riconsegne completate</div>
+    <div class="stats">{{ completed_count }}</div>
+  </div>
+  <div class="card">
+    <div>Furgoni censiti</div>
+    <div class="stats">{{ vans|length }}</div>
   </div>
 </div>
 
-<div class="card">
-  <h2>Crea assegnazione</h2>
-  <form method="post" action="{{ url_for('create_assignment') }}">
-    <select name="driver_id" required>
-      <option value="">Seleziona autista</option>
-      {% for d in drivers %}
-        <option value="{{ d.id }}">{{ d.full_name }}</option>
-      {% endfor %}
-    </select>
-    <select name="van_id" required>
-      <option value="">Seleziona furgone</option>
-      {% for v in vans %}
-        <option value="{{ v.id }}">{{ v.plate }} - {{ v.model }} ({{ v.status }})</option>
-      {% endfor %}
-    </select>
-    <button type="submit">Genera link autista</button>
-  </form>
-</div>
+<hr>
 
-<div class="card" style="overflow-x:auto;">
-  <h2>Storico assegnazioni</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Autista</th>
-        <th>Furgone</th>
-        <th>Stato</th>
-        <th>Creato</th>
-        <th>Link autista</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in assignments %}
-      <tr>
-        <td>{{ a.id }}</td>
-        <td>{{ a.driver_name }}</td>
-        <td>{{ a.plate }} - {{ a.model }}</td>
-        <td><span class="badge">{{ a.status }}</span></td>
-        <td>{{ a.created_at }}</td>
-        <td>
-          <a href="{{ url_for('driver_portal', token=a.token) }}" target="_blank">Apri</a>
-          <div class="small">{{ app_base_url }}{{ url_for('driver_portal', token=a.token) }}</div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<h2>Nuova assegnazione</h2>
+
+<form method="post" action="{{ url_for('create_assignment') }}">
+  <select name="driver_id" required>
+    <option value="">Seleziona autista</option>
+    {% for d in drivers %}
+      <option value="{{ d.id }}">{{ d.full_name }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="van_id" required>
+    <option value="">Seleziona furgone</option>
+    {% for v in vans %}
+      <option value="{{ v.id }}">{{ v.plate }} - {{ v.model }}</option>
+    {% endfor %}
+  </select>
+
+  <button type="submit">Assegna</button>
+</form>
+
+<hr>
+
+<h2>Assegnazioni</h2>
+
+<table border="1" cellpadding="10" cellspacing="0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Autista</th>
+      <th>Furgone</th>
+      <th>Stato</th>
+      <th>Data</th>
+      <th>Link Autista</th>
+      <th>PDF</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for a in assignments %}
+    <tr>
+      <td>{{ a.id }}</td>
+      <td>{{ a.driver_name }}</td>
+      <td>{{ a.plate }}</td>
+      <td>{{ a.status }}</td>
+      <td>{{ a.created_at }}</td>
+
+      <td>
+        <a href="{{ url_for('driver_portal', token=a.token) }}" target="_blank">
+          Vai
+        </a>
+      </td>
+
+      <td>
+        <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
+          📄 PDF
+        </a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Nuovo autista</h2>
+
+<form method="post" action="{{ url_for('create_driver') }}">
+  <input type="text" name="full_name" placeholder="Nome completo" required>
+  <input type="text" name="phone" placeholder="Telefono">
+  <input type="email" name="email" placeholder="Email">
+  <button type="submit">Crea</button>
+</form>
+
+<hr>
+
+<h2>Nuovo furgone</h2>
+
+<form method="post" action="{{ url_for('create_van') }}">
+  <input type="text" name="plate" placeholder="Targa" required>
+  <input type="text" name="model" placeholder="Modello" required>
+  <input type="number" name="current_km" placeholder="KM">
+  <button type="submit">Crea</button>
+</form>
+
 {% endblock %}
