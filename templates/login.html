@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card" style="max-width:420px; margin:60px auto;">
+  <h1>Accesso amministratore</h1>
+  <form method="post">
+    <label>Username</label>
+    <input type="text" name="username" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
+    <button type="submit">Entra</button>
+  </form>
+  <p class="muted">Prima di pubblicare online, cambia utente e password admin.</p>
+</div>
+{% endblock %}
