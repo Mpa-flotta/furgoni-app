@@ -126,7 +126,7 @@ def init_db() -> None:
             cur.execute("SELECT COUNT(*) AS count FROM admin_users;")
             admin_count = cur.fetchone()["count"]
 
-            if admin_count == 0:
+            if True:
                 cur.execute(
                     """
                     INSERT INTO admin_users (username, password_hash, created_at)
