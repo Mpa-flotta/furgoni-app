@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import secrets
 from datetime import datetime
@@ -16,10 +17,13 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     send_from_directory,
     session,
     url_for,
 )
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -42,6 +46,26 @@ DEFAULT_ADMIN_PASSWORD_HASH = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
 
 def now_iso() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def format_date(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return value
+
+
+def only_date(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%d/%m/%Y")
+    except ValueError:
+        return value
 
 
 def get_db():
@@ -481,6 +505,152 @@ def driver_portal(token: str):
         assignment = cur.fetchone()
 
     return render_template("driver.html", assignment=assignment, photos=photos)
+
+
+@app.route("/pdf/<int:assignment_id>")
+@admin_required
+def genera_pdf(assignment_id: int):
+    db = get_db()
+
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                a.*,
+                d.full_name AS driver_name,
+                d.phone AS driver_phone,
+                d.email AS driver_email,
+                v.plate,
+                v.model
+            FROM assignments a
+            JOIN drivers d ON d.id = a.driver_id
+            JOIN vans v ON v.id = a.van_id
+            WHERE a.id = %s
+            """,
+            (assignment_id,),
+        )
+        assignment = cur.fetchone()
+
+        cur.execute(
+            """
+            SELECT * FROM photos
+            WHERE assignment_id = %s
+            ORDER BY id ASC
+            """,
+            (assignment_id,),
+        )
+        photos = cur.fetchall()
+
+    if not assignment:
+        flash("Pratica non trovata.", "error")
+        return redirect(url_for("dashboard"))
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    y = height - 40
+
+    def write_line(text: str, size: int = 11, step: int = 18):
+        nonlocal y
+        pdf.setFont("Helvetica", size)
+        pdf.drawString(40, y, text)
+        y -= step
+
+    def new_page():
+        nonlocal y
+        pdf.showPage()
+        y = height - 40
+
+    pdf.setTitle(f"report_{assignment_id}.pdf")
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(40, y, "REPORT GIORNALIERO PRESA IN CARICO MEZZO")
+    y -= 28
+
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(40, y, f"Generato il: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    y -= 25
+
+    write_line(f"Data pratica: {only_date(assignment['created_at'])}")
+    write_line(f"Data e ora creazione: {format_date(assignment['created_at'])}")
+    write_line(f"Autista: {assignment['driver_name']}")
+    write_line(f"Telefono autista: {assignment.get('driver_phone') or ''}")
+    write_line(f"Email autista: {assignment.get('driver_email') or ''}")
+    write_line(f"Mezzo: {assignment['plate']} - {assignment['model']}")
+    y -= 8
+
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(40, y, "PRESA IN CARICO")
+    y -= 20
+
+    write_line(f"Data e ora presa in carico: {format_date(assignment.get('pickup_at'))}")
+    write_line(f"KM presa in carico: {assignment.get('pickup_km') or ''}")
+    write_line(f"Carburante presa in carico: {assignment.get('pickup_fuel') or ''}")
+    write_line(f"Firma presa in carico: {assignment.get('pickup_signature') or ''}")
+    write_line(f"Carrozzeria OK: {'Si' if assignment.get('body_ok') else 'No'}")
+    write_line(f"Gomme OK: {'Si' if assignment.get('tyres_ok') else 'No'}")
+    write_line(f"Documenti presenti: {'Si' if assignment.get('docs_ok') else 'No'}")
+    write_line(f"Luci OK: {'Si' if assignment.get('lights_ok') else 'No'}")
+
+    pickup_notes = assignment.get("pickup_notes") or ""
+    write_line("Note presa in carico:")
+    if pickup_notes:
+        for line in pickup_notes.splitlines():
+            write_line(f" - {line}")
+    else:
+        write_line(" - Nessuna")
+
+    y -= 8
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(40, y, "RICONSEGNA")
+    y -= 20
+
+    write_line(f"Data e ora riconsegna: {format_date(assignment.get('return_at'))}")
+    write_line(f"KM riconsegna: {assignment.get('return_km') or ''}")
+    write_line(f"Carburante riconsegna: {assignment.get('return_fuel') or ''}")
+    write_line(f"Firma riconsegna: {assignment.get('return_signature') or ''}")
+
+    return_notes = assignment.get("return_notes") or ""
+    write_line("Note riconsegna:")
+    if return_notes:
+        for line in return_notes.splitlines():
+            write_line(f" - {line}")
+    else:
+        write_line(" - Nessuna")
+
+    y -= 10
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(40, y, "FOTO ALLEGATE")
+    y -= 22
+
+    if not photos:
+        write_line("Nessuna foto allegata.")
+    else:
+        for photo in photos:
+            photo_path = UPLOAD_DIR / photo["filename"]
+
+            if y < 160:
+                new_page()
+
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(40, y, f"{photo['stage'].upper()} - {photo['filename']}")
+            y -= 15
+
+            if photo_path.exists():
+                try:
+                    pdf.drawImage(str(photo_path), 40, y - 120, width=180, height=120, preserveAspectRatio=True, mask='auto')
+                    y -= 135
+                except Exception:
+                    write_line("Impossibile caricare l'immagine nel PDF.")
+            else:
+                write_line("Foto non disponibile sul server.")
+
+    pdf.save()
+    buffer.seek(0)
+
+    filename = f"report_{assignment['driver_name'].replace(' ', '_')}_{assignment['plate']}_{assignment_id}.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
 
 @app.route("/uploads/<path:filename>")
