@@ -85,9 +85,9 @@
 
                             <td>
                                 {% if a.first_photo %}
-                                    <a href="{{ url_for('uploaded_file', filename=a.first_photo) }}" target="_blank">
+                                    <a href="{{ a.first_photo }}" target="_blank">
                                         <img
-                                            src="{{ url_for('uploaded_file', filename=a.first_photo) }}"
+                                            src="{{ a.first_photo }}"
                                             alt="foto"
                                             width="80"
                                             style="border-radius: 8px;"
