@@ -3,3 +3,4 @@ gunicorn==22.0.0
 Werkzeug==3.0.3
 psycopg[binary]
 reportlab==4.0.8
+cloudinary==1.44.0
