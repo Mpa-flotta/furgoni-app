@@ -322,38 +322,86 @@ def dashboard():
 @app.route("/driver", methods=["GET", "POST"])
 def driver_select():
     db = get_db()
-    assignments = []
     driver = None
+    available_vans = []
+    assignments = []
 
     if request.method == "POST":
+        action = request.form.get("action")
         pin = request.form.get("pin", "").strip()
 
         with db.cursor() as cur:
             cur.execute("SELECT * FROM drivers WHERE pin = %s", (pin,))
             driver = cur.fetchone()
 
-            if driver:
-                cur.execute("""
-                    SELECT
-                        a.id,
-                        a.token,
-                        a.status,
-                        v.plate,
-                        v.model
-                    FROM assignments a
-                    JOIN vans v ON v.id = a.van_id
-                    WHERE a.driver_id = %s
-                    AND a.status != 'Riconsegnato'
-                    ORDER BY a.id DESC
-                """, (driver["id"],))
-                assignments = cur.fetchall()
+            if not driver:
+                flash("PIN non valido.", "error")
+                return render_template(
+                    "driver_select.html",
+                    driver=None,
+                    assignments=[],
+                    available_vans=[],
+                )
+
+            if action == "select_van":
+                van_id = request.form.get("van_id")
+
+                if van_id:
+                    token = secrets.token_urlsafe(16)
+
+                    cur.execute(
+                        """
+                        INSERT INTO assignments (driver_id, van_id, token, created_at, status)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING token
+                        """,
+                        (driver["id"], van_id, token, now_iso(), "Assegnato"),
+                    )
+                    new_assignment = cur.fetchone()
+
+                    cur.execute(
+                        "UPDATE vans SET status = 'Assegnato' WHERE id = %s",
+                        (van_id,),
+                    )
+
+                    db.commit()
+                    return redirect(url_for("driver_portal", token=new_assignment["token"]))
+
+            cur.execute(
+                """
+                SELECT *
+                FROM vans
+                WHERE status = 'Disponibile'
+                ORDER BY plate
+                """
+            )
+            available_vans = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT
+                    a.id,
+                    a.token,
+                    a.status,
+                    v.plate,
+                    v.model
+                FROM assignments a
+                JOIN vans v ON v.id = a.van_id
+                WHERE a.driver_id = %s
+                AND a.status != 'Riconsegnato'
+                ORDER BY a.id DESC
+                """,
+                (driver["id"],),
+            )
+            assignments = cur.fetchall()
 
     return render_template(
         "driver_select.html",
+        driver=driver,
         assignments=assignments,
-        driver=driver
+        available_vans=available_vans,
     )
-
+    
 
 @app.post("/drivers/create")
 @admin_required
