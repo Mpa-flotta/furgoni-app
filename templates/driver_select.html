@@ -1,57 +1,59 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<h1>Accesso Autista</h1>
+<div class="card">
+    <h1>Accesso Autista</h1>
 
-<form method="post">
-  <input type="hidden" name="action" value="login">
-  <input type="password" name="pin" placeholder="Inserisci PIN" required>
-  <button type="submit">Accedi</button>
-</form>
-
-<hr>
+    <form method="post">
+        <input type="hidden" name="action" value="login">
+        <input type="password" name="pin" placeholder="Inserisci PIN" required>
+        <button type="submit">Accedi</button>
+    </form>
+</div>
 
 {% if driver %}
-  <h2>Benvenuto {{ driver.full_name }}</h2>
+<div class="card">
+    <h2>Benvenuto {{ driver.full_name }}</h2>
 
-  <h3>Scegli il furgone</h3>
-  <form method="post">
-    <input type="hidden" name="action" value="select_van">
-    <input type="hidden" name="pin" value="{{ driver.pin }}">
+    <h3>Scegli il furgone</h3>
+    <form method="post">
+        <input type="hidden" name="action" value="select_van">
+        <input type="hidden" name="pin" value="{{ driver.pin }}">
 
-    <select name="van_id" required>
-      <option value="">Seleziona targa</option>
-      {% for v in available_vans %}
-        <option value="{{ v.id }}">{{ v.plate }} - {{ v.model }}</option>
-      {% endfor %}
-    </select>
+        <select name="van_id" required>
+            <option value="">Seleziona targa</option>
+            {% for v in available_vans %}
+                <option value="{{ v.id }}">{{ v.plate }} - {{ v.model }}</option>
+            {% endfor %}
+        </select>
 
-    <button type="submit">Prendi in carico</button>
-  </form>
+        <button type="submit">Prendi in carico</button>
+    </form>
+</div>
 
-  <hr>
+<div class="card">
+    <h3>Mezzi già assegnati a te</h3>
 
-  <h3>Mezzi già assegnati a te</h3>
+    {% if assignments %}
+        <table border="1" cellpadding="10">
+            <tr>
+                <th>Furgone</th>
+                <th>Stato</th>
+                <th>Apri</th>
+            </tr>
 
-  {% if assignments %}
-    <table border="1" cellpadding="10">
-      <tr>
-        <th>Furgone</th>
-        <th>Stato</th>
-        <th>Apri</th>
-      </tr>
-
-      {% for a in assignments %}
-      <tr>
-        <td>{{ a.plate }} - {{ a.model }}</td>
-        <td>{{ a.status }}</td>
-        <td><a href="{{ url_for('driver_portal', token=a.token) }}">Vai</a></td>
-      </tr>
-      {% endfor %}
-    </table>
-  {% else %}
-    <p>Nessun mezzo attualmente assegnato.</p>
-  {% endif %}
+            {% for a in assignments %}
+            <tr>
+                <td>{{ a.plate }} - {{ a.model }}</td>
+                <td>{{ a.status }}</td>
+                <td><a href="{{ url_for('driver_portal', token=a.token) }}">Vai</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>Nessun mezzo attualmente assegnato.</p>
+    {% endif %}
+</div>
 {% endif %}
 
 {% endblock %}
