@@ -249,7 +249,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
             FROM assignments a
             JOIN drivers d ON d.id = a.driver_id
             JOIN vans v ON v.id = a.van_id
-            ORDER BY a.id DESC
+            ORDER BY a.created_at DESC, a.id DESC
         """)
         assignments = cur.fetchall()
 
@@ -267,14 +267,28 @@ def fetch_dashboard_data() -> dict[str, Any]:
         """)
         completed_count = cur.fetchone()["count"]
 
+    grouped_assignments = {}
+    daily_counts = {}
+
+    for a in assignments:
+        day_key = only_date(a["created_at"])
+
+        if day_key not in grouped_assignments:
+            grouped_assignments[day_key] = []
+
+        grouped_assignments[day_key].append(a)
+        daily_counts[day_key] = len(grouped_assignments[day_key])
+
     return {
         "drivers": drivers,
         "vans": vans,
         "assignments": assignments,
+        "grouped_assignments": grouped_assignments,
+        "daily_counts": daily_counts,
         "active_count": active_count,
         "completed_count": completed_count,
     }
-
+    
 
 @app.route("/")
 def home():
