@@ -229,7 +229,19 @@ def fetch_dashboard_data() -> dict[str, Any]:
                 a.*,
                 d.full_name AS driver_name,
                 v.plate,
-                v.model
+                v.model,
+                (
+                    SELECT COUNT(*)
+                    FROM photos p
+                    WHERE p.assignment_id = a.id
+                ) AS photo_count,
+                (
+                    SELECT p.filename
+                    FROM photos p
+                    WHERE p.assignment_id = a.id
+                    ORDER BY p.id ASC
+                    LIMIT 1
+                ) AS first_photo
             FROM assignments a
             JOIN drivers d ON d.id = a.driver_id
             JOIN vans v ON v.id = a.van_id
@@ -237,10 +249,18 @@ def fetch_dashboard_data() -> dict[str, Any]:
         """)
         assignments = cur.fetchall()
 
-        cur.execute("SELECT COUNT(*) AS count FROM assignments WHERE status IN ('Assegnato', 'Preso in carico')")
+        cur.execute("""
+            SELECT COUNT(*) AS count
+            FROM assignments
+            WHERE status IN ('Assegnato', 'Preso in carico')
+        """)
         active_count = cur.fetchone()["count"]
 
-        cur.execute("SELECT COUNT(*) AS count FROM assignments WHERE status = 'Riconsegnato'")
+        cur.execute("""
+            SELECT COUNT(*) AS count
+            FROM assignments
+            WHERE status = 'Riconsegnato'
+        """)
         completed_count = cur.fetchone()["count"]
 
     return {
@@ -250,7 +270,6 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "active_count": active_count,
         "completed_count": completed_count,
     }
-
 
 @app.route("/")
 def home():
