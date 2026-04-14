@@ -28,7 +28,6 @@
 
 <hr>
 
-<!-- ================= AUTISTA ================= -->
 <div class="card">
     <h2>Nuovo autista</h2>
     <form method="post" action="{{ url_for('create_driver') }}">
@@ -40,7 +39,6 @@
     </form>
 </div>
 
-<!-- ================= FURGONE ================= -->
 <div class="card">
     <h2>Nuovo furgone</h2>
     <form method="post" action="{{ url_for('create_van') }}">
@@ -51,75 +49,61 @@
     </form>
 </div>
 
-<!-- ================= ASSEGNAZIONE ================= -->
-<div class="card">
-    <h2>Nuova assegnazione</h2>
-    <form method="post" action="{{ url_for('create_assignment') }}">
-        <select name="driver_id" required>
-            <option value="">Seleziona autista</option>
-            {% for d in drivers %}
-            <option value="{{ d.id }}">{{ d.full_name }}</option>
-            {% endfor %}
-        </select>
-
-        <select name="van_id" required>
-            <option value="">Seleziona furgone</option>
-            {% for v in vans %}
-            <option value="{{ v.id }}">{{ v.plate }} - {{ v.model }}</option>
-            {% endfor %}
-        </select>
-
-        <button type="submit">Assegna</button>
-    </form>
-</div>
-
 <hr>
 
-<!-- ================= LISTA ================= -->
-<div class="card">
-    <h2>Assegnazioni</h2>
+<h2>Registro giornaliero prese in carico</h2>
 
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Autista</th>
-                <th>Furgone</th>
-                <th>Stato</th>
-                <th>Data</th>
-                <th>Foto</th>
-                <th>PDF</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for a in assignments %}
-            <tr>
-                <td>{{ a.id }}</td>
-                <td>{{ a.driver_name }}</td>
-                <td>{{ a.plate }} - {{ a.model }}</td>
-                <td>{{ a.status }}</td>
-                <td>{{ a.created_at }}</td>
+{% if grouped_assignments %}
+    {% for day, items in grouped_assignments.items() %}
+        <div class="card" style="margin-bottom: 30px;">
+            <h3>{{ day }}</h3>
+            <p><strong>Furgoni presi nel giorno:</strong> {{ daily_counts[day] }}</p>
 
-                <!-- FOTO -->
-                <td>
-                    {% if a.first_photo %}
-                        <img src="{{ url_for('uploaded_file', filename=a.first_photo) }}" width="80">
-                        <div>{{ a.photo_count }} foto</div>
-                    {% else %}
-                        Nessuna
-                    {% endif %}
-                </td>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Autista</th>
+                        <th>Furgone</th>
+                        <th>Stato</th>
+                        <th>Ora</th>
+                        <th>Foto</th>
+                        <th>PDF</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in items %}
+                    <tr>
+                        <td>{{ a.id }}</td>
+                        <td>{{ a.driver_name }}</td>
+                        <td>{{ a.plate }} - {{ a.model }}</td>
+                        <td>{{ a.status }}</td>
+                        <td>{{ a.created_at }}</td>
 
-                <!-- PDF -->
-                <td>
-                    <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
-                        📄 Scarica
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+                        <td>
+                            {% if a.first_photo %}
+                                <a href="{{ url_for('uploaded_file', filename=a.first_photo) }}" target="_blank">
+                                    <img src="{{ url_for('uploaded_file', filename=a.first_photo) }}" width="80">
+                                </a>
+                                <div>{{ a.photo_count }} foto</div>
+                            {% else %}
+                                Nessuna
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
+                                📄 Scarica
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endfor %}
+{% else %}
+    <p>Nessuna presa in carico registrata.</p>
+{% endif %}
 
 {% endblock %}
