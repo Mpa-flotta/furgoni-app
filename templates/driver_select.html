@@ -4,6 +4,7 @@
 <h1>Accesso Autista</h1>
 
 <form method="post">
+  <input type="hidden" name="action" value="login">
   <input type="password" name="pin" placeholder="Inserisci PIN" required>
   <button type="submit">Accedi</button>
 </form>
@@ -12,6 +13,25 @@
 
 {% if driver %}
   <h2>Benvenuto {{ driver.full_name }}</h2>
+
+  <h3>Scegli il furgone</h3>
+  <form method="post">
+    <input type="hidden" name="action" value="select_van">
+    <input type="hidden" name="pin" value="{{ driver.pin }}">
+
+    <select name="van_id" required>
+      <option value="">Seleziona targa</option>
+      {% for v in available_vans %}
+        <option value="{{ v.id }}">{{ v.plate }} - {{ v.model }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit">Prendi in carico</button>
+  </form>
+
+  <hr>
+
+  <h3>Mezzi già assegnati a te</h3>
 
   {% if assignments %}
     <table border="1" cellpadding="10">
@@ -30,7 +50,7 @@
       {% endfor %}
     </table>
   {% else %}
-    <p>Nessun mezzo assegnato</p>
+    <p>Nessun mezzo attualmente assegnato.</p>
   {% endif %}
 {% endif %}
 
