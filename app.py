@@ -23,6 +23,7 @@ from flask import (
     url_for,
 )
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -37,11 +38,24 @@ if not DATABASE_URL:
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "cambia-questa-secret-key")
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
 DEFAULT_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin12345")
 DEFAULT_ADMIN_PASSWORD_HASH = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+
+PHOTO_LABELS = {
+    "pickup_front": "Presa in carico - Anteriore",
+    "pickup_rear": "Presa in carico - Posteriore",
+    "pickup_right": "Presa in carico - Lato destro",
+    "pickup_left": "Presa in carico - Lato sinistro",
+    "pickup_inside": "Presa in carico - Interno",
+    "return_front": "Riconsegna - Anteriore",
+    "return_rear": "Riconsegna - Posteriore",
+    "return_right": "Riconsegna - Lato destro",
+    "return_left": "Riconsegna - Lato sinistro",
+    "return_inside": "Riconsegna - Interno",
+}
 
 
 def now_iso() -> str:
@@ -199,23 +213,40 @@ def admin_required(view_func):
     return wrapped_view
 
 
-def save_uploaded_files(files: list[Any], assignment_id: int, stage: str) -> None:
+def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
+    if not file_obj or not file_obj.filename:
+        return
+
+    db = get_db()
+    safe_name = secure_filename(file_obj.filename)
+    final_name = f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{safe_name}"
+    file_obj.save(UPLOAD_DIR / final_name)
+
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO photos (assignment_id, stage, filename, uploaded_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (assignment_id, stage, final_name, now_iso()),
+        )
+    db.commit()
+
+
+def get_assignment_photos(assignment_id: int):
     db = get_db()
     with db.cursor() as cur:
-        for file in files:
-            if not file or not file.filename:
-                continue
-            safe_name = secure_filename(file.filename)
-            final_name = f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{safe_name}"
-            file.save(UPLOAD_DIR / final_name)
-            cur.execute(
-                """
-                INSERT INTO photos (assignment_id, stage, filename, uploaded_at)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (assignment_id, stage, final_name, now_iso()),
-            )
-    db.commit()
+        cur.execute(
+            "SELECT * FROM photos WHERE assignment_id = %s ORDER BY id ASC",
+            (assignment_id,),
+        )
+        rows = cur.fetchall()
+
+    photos_by_stage = {key: None for key in PHOTO_LABELS.keys()}
+    for row in rows:
+        photos_by_stage[row["stage"]] = row
+
+    return rows, photos_by_stage
 
 
 def fetch_dashboard_data() -> dict[str, Any]:
@@ -272,10 +303,8 @@ def fetch_dashboard_data() -> dict[str, Any]:
 
     for a in assignments:
         day_key = only_date(a["created_at"])
-
         if day_key not in grouped_assignments:
             grouped_assignments[day_key] = []
-
         grouped_assignments[day_key].append(a)
 
     for day_key, items in grouped_assignments.items():
@@ -291,7 +320,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "active_count": active_count,
         "completed_count": completed_count,
     }
-    
+
 
 @app.route("/")
 def home():
@@ -418,7 +447,7 @@ def driver_select():
         assignments=assignments,
         available_vans=available_vans,
     )
-    
+
 
 @app.post("/drivers/create")
 @admin_required
@@ -442,7 +471,7 @@ def create_driver():
 
     flash("Autista creato correttamente.", "success")
     return redirect(url_for("dashboard"))
-    
+
 
 @app.post("/vans/create")
 @admin_required
@@ -474,33 +503,6 @@ def create_van():
     return redirect(url_for("dashboard"))
 
 
-@app.post("/assignments/create")
-@admin_required
-def create_assignment():
-    driver_id = request.form.get("driver_id")
-    van_id = request.form.get("van_id")
-
-    if not driver_id or not van_id:
-        flash("Seleziona autista e furgone.", "error")
-        return redirect(url_for("dashboard"))
-
-    token = secrets.token_urlsafe(16)
-    db = get_db()
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO assignments (driver_id, van_id, token, created_at, status)
-            VALUES (%s, %s, %s, %s, %s)
-            """,
-            (driver_id, van_id, token, now_iso(), "Assegnato"),
-        )
-        cur.execute("UPDATE vans SET status = 'Assegnato' WHERE id = %s", (van_id,))
-    db.commit()
-
-    flash("Assegnazione creata correttamente.", "success")
-    return redirect(url_for("dashboard"))
-
-
 @app.route("/driver/<token>", methods=["GET", "POST"])
 def driver_portal(token: str):
     db = get_db()
@@ -526,10 +528,38 @@ def driver_portal(token: str):
     if assignment is None:
         return "Link non valido.", 404
 
+    _, photos_by_stage = get_assignment_photos(assignment["id"])
+
     if request.method == "POST":
         action = request.form.get("action")
 
         if action == "pickup":
+            required_pickup = [
+                "pickup_front",
+                "pickup_rear",
+                "pickup_right",
+                "pickup_left",
+                "pickup_inside",
+            ]
+
+            missing_files = []
+            for field_name in required_pickup:
+                already_present = photos_by_stage.get(field_name) is not None
+                new_file = request.files.get(field_name)
+                if not already_present and (not new_file or not new_file.filename):
+                    missing_files.append(PHOTO_LABELS[field_name])
+
+            if missing_files:
+                flash("Mancano foto obbligatorie: " + ", ".join(missing_files), "error")
+                all_photos, photos_by_stage = get_assignment_photos(assignment["id"])
+                return render_template(
+                    "driver.html",
+                    assignment=assignment,
+                    photos=all_photos,
+                    photos_by_stage=photos_by_stage,
+                    photo_labels=PHOTO_LABELS,
+                )
+
             with db.cursor() as cur:
                 cur.execute(
                     """
@@ -567,11 +597,22 @@ def driver_portal(token: str):
                     ),
                 )
             db.commit()
-            save_uploaded_files(request.files.getlist("pickup_photos"), assignment["id"], "pickup")
+
+            for field_name in required_pickup:
+                save_single_photo(request.files.get(field_name), assignment["id"], field_name)
+
             flash("Presa in carico registrata.", "success")
             return redirect(url_for("driver_portal", token=token))
 
         if action == "return":
+            return_fields = [
+                "return_front",
+                "return_rear",
+                "return_right",
+                "return_left",
+                "return_inside",
+            ]
+
             with db.cursor() as cur:
                 cur.execute(
                     """
@@ -601,16 +642,14 @@ def driver_portal(token: str):
                     ),
                 )
             db.commit()
-            save_uploaded_files(request.files.getlist("return_photos"), assignment["id"], "return")
+
+            for field_name in return_fields:
+                save_single_photo(request.files.get(field_name), assignment["id"], field_name)
+
             flash("Riconsegna registrata.", "success")
             return redirect(url_for("driver_portal", token=token))
 
-    with db.cursor() as cur:
-        cur.execute(
-            "SELECT * FROM photos WHERE assignment_id = %s ORDER BY id DESC",
-            (assignment["id"],),
-        )
-        photos = cur.fetchall()
+    all_photos, photos_by_stage = get_assignment_photos(assignment["id"])
 
     with db.cursor() as cur:
         cur.execute(
@@ -630,7 +669,13 @@ def driver_portal(token: str):
         )
         assignment = cur.fetchone()
 
-    return render_template("driver.html", assignment=assignment, photos=photos)
+    return render_template(
+        "driver.html",
+        assignment=assignment,
+        photos=all_photos,
+        photos_by_stage=photos_by_stage,
+        photo_labels=PHOTO_LABELS,
+    )
 
 
 @app.route("/pdf/<int:assignment_id>")
@@ -671,49 +716,95 @@ def genera_pdf(assignment_id: int):
         flash("Pratica non trovata.", "error")
         return redirect(url_for("dashboard"))
 
+    photos_by_stage = {key: None for key in PHOTO_LABELS.keys()}
+    for photo in photos:
+        photos_by_stage[photo["stage"]] = photo
+
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
-    _, height = A4
+    page_width, page_height = A4
+    margin = 40
+    y = page_height - margin
 
-    y = height - 40
-
-    def write_line(text: str, size: int = 11, step: int = 18):
+    def write_line(text: str, size: int = 11, step: int = 18, bold: bool = False):
         nonlocal y
-        pdf.setFont("Helvetica", size)
-        pdf.drawString(40, y, text)
+        pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        pdf.drawString(margin, y, text)
         y -= step
 
     def new_page():
         nonlocal y
         pdf.showPage()
-        y = height - 40
+        y = page_height - margin
+
+    def safe_text(value):
+        return "" if value is None else str(value)
+
+    def draw_photo_block(stage_key: str):
+        nonlocal y
+
+        label = PHOTO_LABELS[stage_key]
+        photo = photos_by_stage.get(stage_key)
+
+        if y < 220:
+            new_page()
+
+        write_line(label, size=11, step=16, bold=True)
+
+        if not photo:
+            write_line("Foto non presente.")
+            y -= 8
+            return
+
+        photo_path = UPLOAD_DIR / photo["filename"]
+        if not photo_path.exists():
+            write_line("Foto non disponibile sul server.")
+            y -= 8
+            return
+
+        try:
+            img = ImageReader(str(photo_path))
+            img_width, img_height = img.getSize()
+
+            max_width = 220
+            max_height = 140
+            scale = min(max_width / img_width, max_height / img_height)
+            draw_width = img_width * scale
+            draw_height = img_height * scale
+
+            img_y = y - draw_height
+            pdf.drawImage(
+                img,
+                margin,
+                img_y,
+                width=draw_width,
+                height=draw_height,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+            y = img_y - 18
+        except Exception as e:
+            write_line(f"Impossibile caricare immagine: {str(e)}")
+            y -= 8
 
     pdf.setTitle(f"report_{assignment_id}.pdf")
 
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(40, y, "REPORT GIORNALIERO PRESA IN CARICO MEZZO")
-    y -= 28
-
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(40, y, f"Generato il: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    y -= 25
+    write_line("REPORT GIORNALIERO PRESA IN CARICO MEZZO", size=16, step=28, bold=True)
+    write_line(f"Generato il: {datetime.now().strftime('%d/%m/%Y %H:%M')}", size=10, step=22)
 
     write_line(f"Data pratica: {only_date(assignment['created_at'])}")
     write_line(f"Data e ora creazione: {format_date(assignment['created_at'])}")
     write_line(f"Autista: {assignment['driver_name']}")
-    write_line(f"Telefono autista: {assignment.get('driver_phone') or ''}")
-    write_line(f"Email autista: {assignment.get('driver_email') or ''}")
+    write_line(f"Telefono autista: {safe_text(assignment.get('driver_phone'))}")
+    write_line(f"Email autista: {safe_text(assignment.get('driver_email'))}")
     write_line(f"Mezzo: {assignment['plate']} - {assignment['model']}")
     y -= 8
 
-    pdf.setFont("Helvetica-Bold", 13)
-    pdf.drawString(40, y, "PRESA IN CARICO")
-    y -= 20
-
+    write_line("PRESA IN CARICO", size=13, step=20, bold=True)
     write_line(f"Data e ora presa in carico: {format_date(assignment.get('pickup_at'))}")
-    write_line(f"KM presa in carico: {assignment.get('pickup_km') or ''}")
-    write_line(f"Carburante presa in carico: {assignment.get('pickup_fuel') or ''}")
-    write_line(f"Firma presa in carico: {assignment.get('pickup_signature') or ''}")
+    write_line(f"KM presa in carico: {safe_text(assignment.get('pickup_km'))}")
+    write_line(f"Carburante presa in carico: {safe_text(assignment.get('pickup_fuel'))}")
+    write_line(f"Firma presa in carico: {safe_text(assignment.get('pickup_signature'))}")
     write_line(f"Carrozzeria OK: {'Si' if assignment.get('body_ok') else 'No'}")
     write_line(f"Gomme OK: {'Si' if assignment.get('tyres_ok') else 'No'}")
     write_line(f"Documenti presenti: {'Si' if assignment.get('docs_ok') else 'No'}")
@@ -723,68 +814,51 @@ def genera_pdf(assignment_id: int):
     write_line("Note presa in carico:")
     if pickup_notes:
         for line in pickup_notes.splitlines():
-            write_line(f" - {line}")
+            write_line(f"- {line}")
     else:
-        write_line(" - Nessuna")
+        write_line("- Nessuna")
 
-    y -= 8
-    pdf.setFont("Helvetica-Bold", 13)
-    pdf.drawString(40, y, "RICONSEGNA")
-    y -= 20
+    y -= 6
+    draw_photo_block("pickup_front")
+    draw_photo_block("pickup_rear")
+    draw_photo_block("pickup_right")
+    draw_photo_block("pickup_left")
+    draw_photo_block("pickup_inside")
 
+    if y < 220:
+        new_page()
+
+    write_line("RICONSEGNA", size=13, step=20, bold=True)
     write_line(f"Data e ora riconsegna: {format_date(assignment.get('return_at'))}")
-    write_line(f"KM riconsegna: {assignment.get('return_km') or ''}")
-    write_line(f"Carburante riconsegna: {assignment.get('return_fuel') or ''}")
-    write_line(f"Firma riconsegna: {assignment.get('return_signature') or ''}")
+    write_line(f"KM riconsegna: {safe_text(assignment.get('return_km'))}")
+    write_line(f"Carburante riconsegna: {safe_text(assignment.get('return_fuel'))}")
+    write_line(f"Firma riconsegna: {safe_text(assignment.get('return_signature'))}")
 
     return_notes = assignment.get("return_notes") or ""
     write_line("Note riconsegna:")
     if return_notes:
         for line in return_notes.splitlines():
-            write_line(f" - {line}")
+            write_line(f"- {line}")
     else:
-        write_line(" - Nessuna")
+        write_line("- Nessuna")
 
-    y -= 10
-    pdf.setFont("Helvetica-Bold", 13)
-    pdf.drawString(40, y, "FOTO ALLEGATE")
-    y -= 22
-
-    if not photos:
-        write_line("Nessuna foto allegata.")
-    else:
-        for photo in photos:
-            photo_path = UPLOAD_DIR / photo["filename"]
-
-            if y < 160:
-                new_page()
-
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(40, y, f"{photo['stage'].upper()} - {photo['filename']}")
-            y -= 15
-
-            if photo_path.exists():
-                try:
-                    pdf.drawImage(
-                        str(photo_path),
-                        40,
-                        y - 120,
-                        width=180,
-                        height=120,
-                        preserveAspectRatio=True,
-                        mask="auto",
-                    )
-                    y -= 135
-                except Exception:
-                    write_line("Impossibile caricare l'immagine nel PDF.")
-            else:
-                write_line("Foto non disponibile sul server.")
+    y -= 6
+    draw_photo_block("return_front")
+    draw_photo_block("return_rear")
+    draw_photo_block("return_right")
+    draw_photo_block("return_left")
+    draw_photo_block("return_inside")
 
     pdf.save()
     buffer.seek(0)
 
     filename = f"report_{assignment['driver_name'].replace(' ', '_')}_{assignment['plate']}_{assignment_id}.pdf"
-    return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/pdf"
+    )
 
 
 @app.route("/uploads/<path:filename>")
@@ -796,6 +870,5 @@ init_db()
 
 if __name__ == "__main__":
     app.run(debug=True)
-  
 
 
