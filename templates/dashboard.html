@@ -17,110 +17,116 @@
         <div class="stats">{{ active_count }}</div>
     </div>
     <div class="card">
-        <div>Autisti registrati</div>
-        <div class="stats">{{ drivers_count }}</div>
+        <div>Riconsegne completate</div>
+        <div class="stats">{{ completed_count }}</div>
     </div>
     <div class="card">
-        <div>Furgoni registrati</div>
-        <div class="stats">{{ vans_count }}</div>
+        <div>Furgoni censiti</div>
+        <div class="stats">{{ vans|length }}</div>
     </div>
 </div>
 
 <hr>
 
 <div class="card">
-    <h2>Nuovo autista</h2>
-    <form method="post" action="{{ url_for('create_driver') }}">
+    <h2>👨‍✈️ Gestione Autisti</h2>
+
+    <form method="post" action="{{ url_for('create_driver') }}" style="margin-bottom: 20px;">
         <input type="text" name="full_name" placeholder="Nome completo" required>
         <input type="text" name="phone" placeholder="Telefono">
         <input type="email" name="email" placeholder="Email">
         <input type="text" name="pin" placeholder="PIN (es: 1234)" required>
-        <button type="submit">Crea autista</button>
+        <button type="submit">➕ Aggiungi autista</button>
     </form>
-</div>
-
-<div class="card">
-    <h2>Elenco autisti</h2>
 
     {% if drivers %}
         <details>
-            <summary>Visualizza autisti ({{ drivers_count }})</summary>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nome e cognome</th>
-                        <th>Telefono</th>
-                        <th>Email</th>
-                        <th>PIN</th>
-                        <th>Elimina</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in drivers %}
-                    <tr>
-                        <td>{{ d.full_name }}</td>
-                        <td>{{ d.phone or '-' }}</td>
-                        <td>{{ d.email or '-' }}</td>
-                        <td>{{ d.pin or '-' }}</td>
-                        <td>
-                            <form method="post" action="{{ url_for('delete_driver', driver_id=d.id) }}" onsubmit="return confirm('Eliminare definitivamente questo autista?');">
-                                <button type="submit">Elimina</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <summary style="cursor:pointer; font-weight:600;">
+                📋 Visualizza autisti ({{ drivers|length }})
+            </summary>
+
+            <div style="overflow-x:auto; margin-top:15px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome e cognome</th>
+                            <th>Telefono</th>
+                            <th>Email</th>
+                            <th>PIN</th>
+                            <th>Elimina</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in drivers %}
+                        <tr>
+                            <td>{{ d.full_name }}</td>
+                            <td>{{ d.phone or '-' }}</td>
+                            <td>{{ d.email or '-' }}</td>
+                            <td>{{ d.pin or '-' }}</td>
+                            <td>
+                                <form method="post"
+                                      action="{{ url_for('delete_driver', driver_id=d.id) }}"
+                                      onsubmit="return confirm('Eliminare definitivamente questo autista?');">
+                                    <button type="submit">❌</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </details>
     {% else %}
         <p>Nessun autista registrato.</p>
     {% endif %}
 </div>
 
-<hr>
-
 <div class="card">
-    <h2>Nuovo furgone</h2>
-    <form method="post" action="{{ url_for('create_van') }}">
+    <h2>🚐 Gestione Furgoni</h2>
+
+    <form method="post" action="{{ url_for('create_van') }}" style="margin-bottom: 20px;">
         <input type="text" name="plate" placeholder="Targa" required>
         <input type="text" name="model" placeholder="Modello" required>
         <input type="number" name="current_km" placeholder="KM attuali">
-        <button type="submit">Crea furgone</button>
+        <button type="submit">➕ Aggiungi furgone</button>
     </form>
-</div>
-
-<div class="card">
-    <h2>Elenco furgoni</h2>
 
     {% if vans %}
         <details>
-            <summary>Visualizza furgoni ({{ vans_count }})</summary>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Targa</th>
-                        <th>Modello</th>
-                        <th>KM</th>
-                        <th>Stato</th>
-                        <th>Elimina</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for v in vans %}
-                    <tr>
-                        <td>{{ v.plate }}</td>
-                        <td>{{ v.model }}</td>
-                        <td>{{ v.current_km or 0 }}</td>
-                        <td>{{ v.status }}</td>
-                        <td>
-                            <form method="post" action="{{ url_for('delete_van', van_id=v.id) }}" onsubmit="return confirm('Eliminare definitivamente questo furgone?');">
-                                <button type="submit">Elimina</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <summary style="cursor:pointer; font-weight:600;">
+                📋 Visualizza furgoni ({{ vans|length }})
+            </summary>
+
+            <div style="overflow-x:auto; margin-top:15px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Targa</th>
+                            <th>Modello</th>
+                            <th>KM</th>
+                            <th>Stato</th>
+                            <th>Elimina</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in vans %}
+                        <tr>
+                            <td>{{ v.plate }}</td>
+                            <td>{{ v.model }}</td>
+                            <td>{{ v.current_km or 0 }}</td>
+                            <td>{{ v.status }}</td>
+                            <td>
+                                <form method="post"
+                                      action="{{ url_for('delete_van', van_id=v.id) }}"
+                                      onsubmit="return confirm('Eliminare definitivamente questo furgone?');">
+                                    <button type="submit">❌</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </details>
     {% else %}
         <p>Nessun furgone registrato.</p>
@@ -129,7 +135,7 @@
 
 <hr>
 
-<h2>Registro giornaliero prese in carico</h2>
+<h2>📅 Registro giornaliero prese in carico</h2>
 
 {% if grouped_assignments %}
     {% for day, items in grouped_assignments.items() %}
@@ -160,7 +166,6 @@
                             <td>{{ a.status }}</td>
                             <td>{{ a.pickup_at or '-' }}</td>
                             <td>{{ a.return_at or '-' }}</td>
-
                             <td>
                                 {% if a.first_photo %}
                                     <a href="{{ a.first_photo }}" target="_blank">
@@ -168,7 +173,7 @@
                                             src="{{ a.first_photo }}"
                                             alt="foto"
                                             width="80"
-                                            style="border-radius: 8px;"
+                                            style="border-radius:8px;"
                                         >
                                     </a>
                                     <div>{{ a.photo_count }} foto</div>
@@ -176,7 +181,6 @@
                                     Nessuna
                                 {% endif %}
                             </td>
-
                             <td>
                                 <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
                                     📄 Scarica
