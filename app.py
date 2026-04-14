@@ -513,6 +513,21 @@ def create_driver():
     flash("Autista creato correttamente.", "success")
     return redirect(url_for("dashboard"))
 
+@app.post("/drivers/delete/<int:driver_id>")
+@admin_required
+def delete_driver(driver_id: int):
+    db = get_db()
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM drivers WHERE id = %s", (driver_id,))
+        db.commit()
+        flash("Autista eliminato correttamente.", "success")
+    except Exception:
+        db.rollback()
+        flash("Impossibile eliminare l'autista. Potrebbe avere pratiche collegate.", "error")
+
+    return redirect(url_for("dashboard"))
+
 
 @app.post("/vans/create")
 @admin_required
@@ -540,6 +555,21 @@ def create_van():
     except psycopg.errors.UniqueViolation:
         db.rollback()
         flash("La targa esiste già.", "error")
+
+    return redirect(url_for("dashboard"))
+
+@app.post("/vans/delete/<int:van_id>")
+@admin_required
+def delete_van(van_id: int):
+    db = get_db()
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM vans WHERE id = %s", (van_id,))
+        db.commit()
+        flash("Furgone eliminato correttamente.", "success")
+    except Exception:
+        db.rollback()
+        flash("Impossibile eliminare il furgone. Potrebbe avere pratiche collegate.", "error")
 
     return redirect(url_for("dashboard"))
 
