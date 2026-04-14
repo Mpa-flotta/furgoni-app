@@ -900,9 +900,15 @@ def genera_pdf(assignment_id: int):
     )
 
 
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename: str):
+    return redirect(filename)
+
+
 init_db()
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
