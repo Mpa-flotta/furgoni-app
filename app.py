@@ -353,8 +353,8 @@ def fetch_dashboard_data() -> dict[str, Any]:
         daily_counts[day_key] = len(unique_plates)
 
     return {
-        "drivers": drivers,
-        "vans": vans,
+        "drivers_count": len(drivers),
+        "vans_count": len(vans),
         "assignments": assignments,
         "grouped_assignments": grouped_assignments,
         "daily_counts": daily_counts,
