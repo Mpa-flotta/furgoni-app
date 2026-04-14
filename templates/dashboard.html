@@ -57,49 +57,58 @@
     {% for day, items in grouped_assignments.items() %}
         <div class="card" style="margin-bottom: 30px;">
             <h3>{{ day }}</h3>
-            <p><strong>Furgoni presi nel giorno:</strong> {{ daily_counts[day] }}</p>
+            <p><strong>Furgoni usati nel giorno:</strong> {{ daily_counts[day] }}</p>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Autista</th>
-                        <th>Furgone</th>
-                        <th>Stato</th>
-                        <th>Ora</th>
-                        <th>Foto</th>
-                        <th>PDF</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in items %}
-                    <tr>
-                        <td>{{ a.id }}</td>
-                        <td>{{ a.driver_name }}</td>
-                        <td>{{ a.plate }} - {{ a.model }}</td>
-                        <td>{{ a.status }}</td>
-                        <td>{{ a.created_at }}</td>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Autista</th>
+                            <th>Furgone</th>
+                            <th>Stato</th>
+                            <th>Presa in carico</th>
+                            <th>Riconsegna</th>
+                            <th>Foto</th>
+                            <th>PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in items %}
+                        <tr>
+                            <td>{{ a.id }}</td>
+                            <td>{{ a.driver_name }}</td>
+                            <td>{{ a.plate }} - {{ a.model }}</td>
+                            <td>{{ a.status }}</td>
+                            <td>{{ a.pickup_at or '-' }}</td>
+                            <td>{{ a.return_at or '-' }}</td>
 
-                        <td>
-                            {% if a.first_photo %}
-                                <a href="{{ url_for('uploaded_file', filename=a.first_photo) }}" target="_blank">
-                                    <img src="{{ url_for('uploaded_file', filename=a.first_photo) }}" width="80">
+                            <td>
+                                {% if a.first_photo %}
+                                    <a href="{{ url_for('uploaded_file', filename=a.first_photo) }}" target="_blank">
+                                        <img
+                                            src="{{ url_for('uploaded_file', filename=a.first_photo) }}"
+                                            alt="foto"
+                                            width="80"
+                                            style="border-radius: 8px;"
+                                        >
+                                    </a>
+                                    <div>{{ a.photo_count }} foto</div>
+                                {% else %}
+                                    Nessuna
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
+                                    📄 Scarica
                                 </a>
-                                <div>{{ a.photo_count }} foto</div>
-                            {% else %}
-                                Nessuna
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
-                                📄 Scarica
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     {% endfor %}
 {% else %}
