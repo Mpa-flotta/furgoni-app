@@ -377,7 +377,7 @@ def create_driver():
 
     flash("Autista creato correttamente.", "success")
     return redirect(url_for("dashboard"))
-
+    
 
 @app.post("/vans/create")
 @admin_required
