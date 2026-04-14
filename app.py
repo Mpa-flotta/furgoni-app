@@ -3,13 +3,16 @@ from __future__ import annotations
 import io
 import os
 import secrets
+import urllib.request
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from typing import Any
-from PIL import Image, ImageOps
 
+import cloudinary
+import cloudinary.uploader
 import psycopg
+from PIL import Image, ImageOps
 from psycopg.rows import dict_row
 from flask import (
     Flask,
@@ -19,7 +22,6 @@ from flask import (
     render_template,
     request,
     send_file,
-    send_from_directory,
     session,
     url_for,
 )
@@ -30,8 +32,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
@@ -41,9 +41,14 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "cambia-questa-secret-key")
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
+cloudinary.config(secure=True)
+
 DEFAULT_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin12345")
 DEFAULT_ADMIN_PASSWORD_HASH = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+
+MAX_IMAGE_SIZE = (1600, 1600)
+JPEG_QUALITY = 72
 
 PHOTO_LABELS = {
     "pickup_front": "Presa in carico - Anteriore",
@@ -57,8 +62,6 @@ PHOTO_LABELS = {
     "return_left": "Riconsegna - Lato sinistro",
     "return_inside": "Riconsegna - Interno",
 }
-MAX_IMAGE_SIZE = (1600, 1600)
-JPEG_QUALITY = 72
 
 
 def now_iso() -> str:
@@ -90,6 +93,14 @@ def get_db():
         g.db = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     return g.db
 
+
+@app.teardown_appcontext
+def close_db(exception=None):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
 def optimize_image(file_obj) -> io.BytesIO:
     img = Image.open(file_obj.stream)
     img = ImageOps.exif_transpose(img)
@@ -110,13 +121,6 @@ def optimize_image(file_obj) -> io.BytesIO:
     )
     output.seek(0)
     return output
-    
-
-@app.teardown_appcontext
-def close_db(exception=None):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
 
 
 def init_db() -> None:
@@ -268,7 +272,7 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
             (assignment_id, stage, image_url, now_iso()),
         )
     db.commit()
-    
+
 
 def get_assignment_photos(assignment_id: int):
     db = get_db()
@@ -759,7 +763,7 @@ def genera_pdf(assignment_id: int):
 
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
-    page_width, page_height = A4
+    _, page_height = A4
     margin = 40
     y = page_height - margin
 
@@ -793,14 +797,11 @@ def genera_pdf(assignment_id: int):
             y -= 8
             return
 
-        photo_path = UPLOAD_DIR / photo["filename"]
-        if not photo_path.exists():
-            write_line("Foto non disponibile sul server.")
-            y -= 8
-            return
-
         try:
-            img = ImageReader(str(photo_path))
+            with urllib.request.urlopen(photo["filename"]) as response:
+                image_bytes = response.read()
+
+            img = ImageReader(io.BytesIO(image_bytes))
             img_width, img_height = img.getSize()
 
             max_width = 160
@@ -820,8 +821,9 @@ def genera_pdf(assignment_id: int):
                 mask="auto",
             )
             y = img_y - 18
+
         except Exception as e:
-            write_line(f"Impossibile caricare immagine: {str(e)}")
+            write_line(f"Immagine non caricabile: {str(e)}")
             y -= 8
 
     pdf.setTitle(f"report_{assignment_id}.pdf")
@@ -896,11 +898,6 @@ def genera_pdf(assignment_id: int):
         download_name=filename,
         mimetype="application/pdf"
     )
-
-
-@app.route("/uploads/<path:filename>")
-def uploaded_file(filename: str):
-    return send_from_directory(UPLOAD_DIR, filename)
 
 
 init_db()
