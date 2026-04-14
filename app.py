@@ -277,7 +277,10 @@ def fetch_dashboard_data() -> dict[str, Any]:
             grouped_assignments[day_key] = []
 
         grouped_assignments[day_key].append(a)
-        daily_counts[day_key] = len(grouped_assignments[day_key])
+
+    for day_key, items in grouped_assignments.items():
+        unique_plates = {item["plate"] for item in items}
+        daily_counts[day_key] = len(unique_plates)
 
     return {
         "drivers": drivers,
