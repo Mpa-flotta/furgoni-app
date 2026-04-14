@@ -1,84 +1,168 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <div class="card">
-  <h1>Portale autista</h1>
-  <p><strong>Autista:</strong> {{ assignment.driver_name }}</p>
-  <p><strong>Furgone:</strong> {{ assignment.plate }} - {{ assignment.model }}</p>
-  <p><strong>Stato pratica:</strong> {{ assignment.status }}</p>
+    <h1>Portale autista</h1>
+    <p><strong>Autista:</strong> {{ assignment.driver_name }}</p>
+    <p><strong>Furgone:</strong> {{ assignment.plate }} - {{ assignment.model }}</p>
+    <p><strong>Stato pratica:</strong> {{ assignment.status }}</p>
 </div>
 
 <div class="card">
-  <h2>Presa in carico</h2>
-  <form method="post" enctype="multipart/form-data">
-    <input type="hidden" name="action" value="pickup">
-    <div class="row">
-      <div>
-        <label>KM alla presa in carico</label>
-        <input type="number" name="pickup_km" value="{{ assignment.pickup_km or assignment.current_km or '' }}" required>
-      </div>
-      <div>
-        <label>Carburante</label>
-        <select name="pickup_fuel" required>
-          <option value="">Seleziona</option>
-          <option {% if assignment.pickup_fuel == 'Pieno' %}selected{% endif %}>Pieno</option>
-          <option {% if assignment.pickup_fuel == '3/4' %}selected{% endif %}>3/4</option>
-          <option {% if assignment.pickup_fuel == '1/2' %}selected{% endif %}>1/2</option>
-          <option {% if assignment.pickup_fuel == '1/4' %}selected{% endif %}>1/4</option>
-          <option {% if assignment.pickup_fuel == 'Riserva' %}selected{% endif %}>Riserva</option>
-        </select>
-      </div>
-    </div>
-    <label><input type="checkbox" name="body_ok" {% if assignment.body_ok %}checked{% endif %}> Carrozzeria ok</label>
-    <label><input type="checkbox" name="tyres_ok" {% if assignment.tyres_ok %}checked{% endif %}> Gomme ok</label>
-    <label><input type="checkbox" name="docs_ok" {% if assignment.docs_ok %}checked{% endif %}> Documenti presenti</label>
-    <label><input type="checkbox" name="lights_ok" {% if assignment.lights_ok %}checked{% endif %}> Luci ok</label>
-    <textarea name="pickup_notes" rows="4" placeholder="Segnala danni o anomalie">{{ assignment.pickup_notes or '' }}</textarea>
-    <input type="text" name="pickup_signature" value="{{ assignment.pickup_signature or assignment.driver_name }}" placeholder="Firma" required>
-    <input type="file" name="pickup_photos" multiple accept="image/*">
-    <button type="submit" {% if assignment.status != 'Assegnato' %}disabled{% endif %}>Conferma presa in carico</button>
-  </form>
+    <h2>Presa in carico</h2>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="pickup">
+
+        <div class="row">
+            <div>
+                <label>KM alla presa in carico</label>
+                <input type="number" name="pickup_km" value="{{ assignment.pickup_km or assignment.current_km or '' }}" required>
+            </div>
+            <div>
+                <label>Carburante</label>
+                <select name="pickup_fuel" required>
+                    <option value="">Seleziona</option>
+                    <option {% if assignment.pickup_fuel == 'Pieno' %}selected{% endif %}>Pieno</option>
+                    <option {% if assignment.pickup_fuel == '3/4' %}selected{% endif %}>3/4</option>
+                    <option {% if assignment.pickup_fuel == '1/2' %}selected{% endif %}>1/2</option>
+                    <option {% if assignment.pickup_fuel == '1/4' %}selected{% endif %}>1/4</option>
+                    <option {% if assignment.pickup_fuel == 'Riserva' %}selected{% endif %}>Riserva</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="checkboxes">
+            <label><input type="checkbox" name="body_ok" {% if assignment.body_ok %}checked{% endif %}> Carrozzeria ok</label>
+            <label><input type="checkbox" name="tyres_ok" {% if assignment.tyres_ok %}checked{% endif %}> Gomme ok</label>
+            <label><input type="checkbox" name="docs_ok" {% if assignment.docs_ok %}checked{% endif %}> Documenti presenti</label>
+            <label><input type="checkbox" name="lights_ok" {% if assignment.lights_ok %}checked{% endif %}> Luci ok</label>
+        </div>
+
+        <label>Note presa in carico</label>
+        <textarea name="pickup_notes" rows="4" placeholder="Segnala danni o anomalie">{{ assignment.pickup_notes or '' }}</textarea>
+
+        <label>Firma presa in carico</label>
+        <input type="text" name="pickup_signature" value="{{ assignment.pickup_signature or assignment.driver_name }}" required>
+
+        <h3>Foto obbligatorie presa in carico</h3>
+
+        <label>Anteriore</label>
+        <input type="file" name="pickup_front" accept="image/*" {% if not photos_by_stage['pickup_front'] %}required{% endif %}>
+        {% if photos_by_stage['pickup_front'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_front'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Posteriore</label>
+        <input type="file" name="pickup_rear" accept="image/*" {% if not photos_by_stage['pickup_rear'] %}required{% endif %}>
+        {% if photos_by_stage['pickup_rear'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_rear'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Lato destro</label>
+        <input type="file" name="pickup_right" accept="image/*" {% if not photos_by_stage['pickup_right'] %}required{% endif %}>
+        {% if photos_by_stage['pickup_right'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_right'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Lato sinistro</label>
+        <input type="file" name="pickup_left" accept="image/*" {% if not photos_by_stage['pickup_left'] %}required{% endif %}>
+        {% if photos_by_stage['pickup_left'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_left'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Interno</label>
+        <input type="file" name="pickup_inside" accept="image/*" {% if not photos_by_stage['pickup_inside'] %}required{% endif %}>
+        {% if photos_by_stage['pickup_inside'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_inside'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <button type="submit">Conferma presa in carico</button>
+    </form>
 </div>
 
 <div class="card">
-  <h2>Riconsegna</h2>
-  <form method="post" enctype="multipart/form-data">
-    <input type="hidden" name="action" value="return">
-    <div class="row">
-      <div>
-        <label>KM alla riconsegna</label>
-        <input type="number" name="return_km" value="{{ assignment.return_km or '' }}" required>
-      </div>
-      <div>
-        <label>Carburante</label>
-        <select name="return_fuel" required>
-          <option value="">Seleziona</option>
-          <option {% if assignment.return_fuel == 'Pieno' %}selected{% endif %}>Pieno</option>
-          <option {% if assignment.return_fuel == '3/4' %}selected{% endif %}>3/4</option>
-          <option {% if assignment.return_fuel == '1/2' %}selected{% endif %}>1/2</option>
-          <option {% if assignment.return_fuel == '1/4' %}selected{% endif %}>1/4</option>
-          <option {% if assignment.return_fuel == 'Riserva' %}selected{% endif %}>Riserva</option>
-        </select>
-      </div>
-    </div>
-    <textarea name="return_notes" rows="4" placeholder="Segnala eventuali danni o problemi">{{ assignment.return_notes or '' }}</textarea>
-    <input type="text" name="return_signature" value="{{ assignment.return_signature or assignment.driver_name }}" placeholder="Firma riconsegna" required>
-    <input type="file" name="return_photos" multiple accept="image/*">
-    <button type="submit" {% if assignment.status == 'Riconsegnato' %}disabled{% endif %}>Conferma riconsegna</button>
-  </form>
+    <h2>Riconsegna</h2>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="return">
+
+        <div class="row">
+            <div>
+                <label>KM alla riconsegna</label>
+                <input type="number" name="return_km" value="{{ assignment.return_km or '' }}" required>
+            </div>
+            <div>
+                <label>Carburante</label>
+                <select name="return_fuel" required>
+                    <option value="">Seleziona</option>
+                    <option {% if assignment.return_fuel == 'Pieno' %}selected{% endif %}>Pieno</option>
+                    <option {% if assignment.return_fuel == '3/4' %}selected{% endif %}>3/4</option>
+                    <option {% if assignment.return_fuel == '1/2' %}selected{% endif %}>1/2</option>
+                    <option {% if assignment.return_fuel == '1/4' %}selected{% endif %}>1/4</option>
+                    <option {% if assignment.return_fuel == 'Riserva' %}selected{% endif %}>Riserva</option>
+                </select>
+            </div>
+        </div>
+
+        <label>Note riconsegna</label>
+        <textarea name="return_notes" rows="4" placeholder="Segnala eventuali danni o problemi">{{ assignment.return_notes or '' }}</textarea>
+
+        <label>Firma riconsegna</label>
+        <input type="text" name="return_signature" value="{{ assignment.return_signature or assignment.driver_name }}" required>
+
+        <h3>Foto riconsegna</h3>
+
+        <label>Anteriore</label>
+        <input type="file" name="return_front" accept="image/*">
+        {% if photos_by_stage['return_front'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_front'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Posteriore</label>
+        <input type="file" name="return_rear" accept="image/*">
+        {% if photos_by_stage['return_rear'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_rear'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Lato destro</label>
+        <input type="file" name="return_right" accept="image/*">
+        {% if photos_by_stage['return_right'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_right'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Lato sinistro</label>
+        <input type="file" name="return_left" accept="image/*">
+        {% if photos_by_stage['return_left'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_left'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <label>Interno</label>
+        <input type="file" name="return_inside" accept="image/*">
+        {% if photos_by_stage['return_inside'] %}
+            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_inside'].filename) }}" width="120"></div>
+        {% endif %}
+
+        <button type="submit">Conferma riconsegna</button>
+    </form>
 </div>
 
 <div class="card">
-  <h2>Foto caricate</h2>
-  {% if photos %}
-    <div class="gallery">
-      {% for photo in photos %}
-        <a href="{{ url_for('uploaded_file', filename=photo.filename) }}" target="_blank">
-          <img src="{{ url_for('uploaded_file', filename=photo.filename) }}" alt="foto mezzo">
-        </a>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p class="muted">Nessuna foto caricata.</p>
-  {% endif %}
+    <h2>Riepilogo foto pratica</h2>
+    {% if photos %}
+        <div class="gallery">
+            {% for photo in photos %}
+                <div style="margin-bottom: 20px;">
+                    <div><strong>{{ photo_labels.get(photo.stage, photo.stage) }}</strong></div>
+                    <a href="{{ url_for('uploaded_file', filename=photo.filename) }}" target="_blank">
+                        <img src="{{ url_for('uploaded_file', filename=photo.filename) }}" alt="foto mezzo" width="180">
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Nessuna foto caricata.</p>
+    {% endif %}
 </div>
+
 {% endblock %}
+
+
