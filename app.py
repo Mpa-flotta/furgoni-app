@@ -98,9 +98,12 @@ def init_db() -> None:
                     id SERIAL PRIMARY KEY,
                     full_name TEXT NOT NULL,
                     phone TEXT,
-                    email TEXT
+                    email TEXT,
+                    pin TEXT
                 );
             """)
+
+            cur.execute("ALTER TABLE drivers ADD COLUMN IF NOT EXISTS pin TEXT;")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS vans (
@@ -164,10 +167,10 @@ def init_db() -> None:
 
             if driver_count == 0:
                 cur.executemany(
-                    "INSERT INTO drivers (full_name, phone, email) VALUES (%s, %s, %s)",
+                    "INSERT INTO drivers (full_name, phone, email, pin) VALUES (%s, %s, %s, %s)",
                     [
-                        ("Mario Rossi", "3331112233", "mario.rossi@example.com"),
-                        ("Luigi Bianchi", "3334445566", "luigi.bianchi@example.com"),
+                        ("Mario Rossi", "3331112233", "mario.rossi@example.com", "1234"),
+                        ("Luigi Bianchi", "3334445566", "luigi.bianchi@example.com", "5678"),
                     ],
                 )
 
@@ -228,6 +231,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
             SELECT
                 a.*,
                 d.full_name AS driver_name,
+                d.pin AS driver_pin,
                 v.plate,
                 v.model,
                 (
@@ -270,6 +274,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "active_count": active_count,
         "completed_count": completed_count,
     }
+
 
 @app.route("/")
 def home():
@@ -341,7 +346,6 @@ def driver_select():
                     AND a.status != 'Riconsegnato'
                     ORDER BY a.id DESC
                 """, (driver["id"],))
-
                 assignments = cur.fetchall()
 
     return render_template(
@@ -357,16 +361,17 @@ def create_driver():
     full_name = request.form.get("full_name", "").strip()
     phone = request.form.get("phone", "").strip()
     email = request.form.get("email", "").strip()
+    pin = request.form.get("pin", "").strip()
 
-    if not full_name:
-        flash("Il nome autista è obbligatorio.", "error")
+    if not full_name or not pin:
+        flash("Nome e PIN sono obbligatori.", "error")
         return redirect(url_for("dashboard"))
 
     db = get_db()
     with db.cursor() as cur:
         cur.execute(
-            "INSERT INTO drivers (full_name, phone, email) VALUES (%s, %s, %s)",
-            (full_name, phone, email),
+            "INSERT INTO drivers (full_name, phone, email, pin) VALUES (%s, %s, %s, %s)",
+            (full_name, phone, email, pin),
         )
     db.commit()
 
@@ -427,7 +432,7 @@ def create_assignment():
         cur.execute("UPDATE vans SET status = 'Assegnato' WHERE id = %s", (van_id,))
     db.commit()
 
-    flash("Assegnazione creata. Copia il link autista dalla dashboard.", "success")
+    flash("Assegnazione creata correttamente.", "success")
     return redirect(url_for("dashboard"))
 
 
@@ -603,7 +608,7 @@ def genera_pdf(assignment_id: int):
 
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    _, height = A4
 
     y = height - 40
 
@@ -695,7 +700,15 @@ def genera_pdf(assignment_id: int):
 
             if photo_path.exists():
                 try:
-                    pdf.drawImage(str(photo_path), 40, y - 120, width=180, height=120, preserveAspectRatio=True, mask='auto')
+                    pdf.drawImage(
+                        str(photo_path),
+                        40,
+                        y - 120,
+                        width=180,
+                        height=120,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
                     y -= 135
                 except Exception:
                     write_line("Impossibile caricare l'immagine nel PDF.")
@@ -718,3 +731,6 @@ init_db()
 
 if __name__ == "__main__":
     app.run(debug=True)
+  
+
+
