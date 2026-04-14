@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h1>Accesso Autista</h1>
+
+<form method="post">
+  <input type="password" name="pin" placeholder="Inserisci PIN" required>
+  <button type="submit">Accedi</button>
+</form>
+
+<hr>
+
+{% if driver %}
+  <h2>Benvenuto {{ driver.full_name }}</h2>
+
+  {% if assignments %}
+    <table border="1" cellpadding="10">
+      <tr>
+        <th>Furgone</th>
+        <th>Stato</th>
+        <th>Apri</th>
+      </tr>
+
+      {% for a in assignments %}
+      <tr>
+        <td>{{ a.plate }} - {{ a.model }}</td>
+        <td>{{ a.status }}</td>
+        <td><a href="{{ url_for('driver_portal', token=a.token) }}">Vai</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>Nessun mezzo assegnato</p>
+  {% endif %}
+{% endif %}
+
+{% endblock %}
