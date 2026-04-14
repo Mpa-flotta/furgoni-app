@@ -17,12 +17,12 @@
         <div class="stats">{{ active_count }}</div>
     </div>
     <div class="card">
-        <div>Riconsegne completate</div>
-        <div class="stats">{{ completed_count }}</div>
+        <div>Autisti registrati</div>
+        <div class="stats">{{ drivers_count }}</div>
     </div>
     <div class="card">
-        <div>Furgoni censiti</div>
-        <div class="stats">{{ vans|length }}</div>
+        <div>Furgoni registrati</div>
+        <div class="stats">{{ vans_count }}</div>
     </div>
 </div>
 
@@ -40,6 +40,46 @@
 </div>
 
 <div class="card">
+    <h2>Elenco autisti</h2>
+
+    {% if drivers %}
+        <details>
+            <summary>Visualizza autisti ({{ drivers_count }})</summary>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome e cognome</th>
+                        <th>Telefono</th>
+                        <th>Email</th>
+                        <th>PIN</th>
+                        <th>Elimina</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in drivers %}
+                    <tr>
+                        <td>{{ d.full_name }}</td>
+                        <td>{{ d.phone or '-' }}</td>
+                        <td>{{ d.email or '-' }}</td>
+                        <td>{{ d.pin or '-' }}</td>
+                        <td>
+                            <form method="post" action="{{ url_for('delete_driver', driver_id=d.id) }}" onsubmit="return confirm('Eliminare definitivamente questo autista?');">
+                                <button type="submit">Elimina</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </details>
+    {% else %}
+        <p>Nessun autista registrato.</p>
+    {% endif %}
+</div>
+
+<hr>
+
+<div class="card">
     <h2>Nuovo furgone</h2>
     <form method="post" action="{{ url_for('create_van') }}">
         <input type="text" name="plate" placeholder="Targa" required>
@@ -47,6 +87,44 @@
         <input type="number" name="current_km" placeholder="KM attuali">
         <button type="submit">Crea furgone</button>
     </form>
+</div>
+
+<div class="card">
+    <h2>Elenco furgoni</h2>
+
+    {% if vans %}
+        <details>
+            <summary>Visualizza furgoni ({{ vans_count }})</summary>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Targa</th>
+                        <th>Modello</th>
+                        <th>KM</th>
+                        <th>Stato</th>
+                        <th>Elimina</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vans %}
+                    <tr>
+                        <td>{{ v.plate }}</td>
+                        <td>{{ v.model }}</td>
+                        <td>{{ v.current_km or 0 }}</td>
+                        <td>{{ v.status }}</td>
+                        <td>
+                            <form method="post" action="{{ url_for('delete_van', van_id=v.id) }}" onsubmit="return confirm('Eliminare definitivamente questo furgone?');">
+                                <button type="submit">Elimina</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </details>
+    {% else %}
+        <p>Nessun furgone registrato.</p>
+    {% endif %}
 </div>
 
 <hr>
