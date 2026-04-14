@@ -314,6 +314,43 @@ def dashboard():
     return render_template("dashboard.html", **data)
 
 
+@app.route("/driver", methods=["GET", "POST"])
+def driver_select():
+    db = get_db()
+    assignments = []
+    driver = None
+
+    if request.method == "POST":
+        pin = request.form.get("pin", "").strip()
+
+        with db.cursor() as cur:
+            cur.execute("SELECT * FROM drivers WHERE pin = %s", (pin,))
+            driver = cur.fetchone()
+
+            if driver:
+                cur.execute("""
+                    SELECT
+                        a.id,
+                        a.token,
+                        a.status,
+                        v.plate,
+                        v.model
+                    FROM assignments a
+                    JOIN vans v ON v.id = a.van_id
+                    WHERE a.driver_id = %s
+                    AND a.status != 'Riconsegnato'
+                    ORDER BY a.id DESC
+                """, (driver["id"],))
+
+                assignments = cur.fetchall()
+
+    return render_template(
+        "driver_select.html",
+        assignments=assignments,
+        driver=driver
+    )
+
+
 @app.post("/drivers/create")
 @admin_required
 def create_driver():
