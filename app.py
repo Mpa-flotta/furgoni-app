@@ -7,6 +7,7 @@ from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from typing import Any
+from PIL import Image, ImageOps
 
 import psycopg
 from psycopg.rows import dict_row
@@ -56,6 +57,8 @@ PHOTO_LABELS = {
     "return_left": "Riconsegna - Lato sinistro",
     "return_inside": "Riconsegna - Interno",
 }
+MAX_IMAGE_SIZE = (1600, 1600)
+JPEG_QUALITY = 72
 
 
 def now_iso() -> str:
@@ -87,6 +90,27 @@ def get_db():
         g.db = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     return g.db
 
+def optimize_image(file_obj) -> io.BytesIO:
+    img = Image.open(file_obj.stream)
+    img = ImageOps.exif_transpose(img)
+
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    elif img.mode == "L":
+        img = img.convert("RGB")
+
+    img.thumbnail(MAX_IMAGE_SIZE)
+
+    output = io.BytesIO()
+    img.save(
+        output,
+        format="JPEG",
+        quality=JPEG_QUALITY,
+        optimize=True,
+    )
+    output.seek(0)
+    return output
+    
 
 @app.teardown_appcontext
 def close_db(exception=None):
@@ -219,8 +243,21 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
 
     db = get_db()
     safe_name = secure_filename(file_obj.filename)
-    final_name = f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{safe_name}"
-    file_obj.save(UPLOAD_DIR / final_name)
+    base_name = Path(safe_name).stem
+
+    optimized_file = optimize_image(file_obj)
+
+    result = cloudinary.uploader.upload(
+        optimized_file,
+        folder="furgoni_app",
+        public_id=f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{base_name}",
+        resource_type="image",
+        format="jpg",
+    )
+
+    image_url = result.get("secure_url")
+    if not image_url:
+        return
 
     with db.cursor() as cur:
         cur.execute(
@@ -228,10 +265,10 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
             INSERT INTO photos (assignment_id, stage, filename, uploaded_at)
             VALUES (%s, %s, %s, %s)
             """,
-            (assignment_id, stage, final_name, now_iso()),
+            (assignment_id, stage, image_url, now_iso()),
         )
     db.commit()
-
+    
 
 def get_assignment_photos(assignment_id: int):
     db = get_db()
@@ -766,8 +803,8 @@ def genera_pdf(assignment_id: int):
             img = ImageReader(str(photo_path))
             img_width, img_height = img.getSize()
 
-            max_width = 220
-            max_height = 140
+            max_width = 160
+            max_height = 110
             scale = min(max_width / img_width, max_height / img_height)
             draw_width = img_width * scale
             draw_height = img_height * scale
