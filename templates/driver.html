@@ -47,33 +47,33 @@
         <h3>Foto obbligatorie presa in carico</h3>
 
         <label>Anteriore</label>
-        <input type="file" name="pickup_front" accept="image/*" {% if not photos_by_stage['pickup_front'] %}required{% endif %}>
+        <input type="file" name="pickup_front" accept="image/*" capture="environment" {% if not photos_by_stage['pickup_front'] %}required{% endif %}>
         {% if photos_by_stage['pickup_front'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_front'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['pickup_front'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Posteriore</label>
-        <input type="file" name="pickup_rear" accept="image/*" {% if not photos_by_stage['pickup_rear'] %}required{% endif %}>
+        <input type="file" name="pickup_rear" accept="image/*" capture="environment" {% if not photos_by_stage['pickup_rear'] %}required{% endif %}>
         {% if photos_by_stage['pickup_rear'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_rear'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['pickup_rear'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Lato destro</label>
-        <input type="file" name="pickup_right" accept="image/*" {% if not photos_by_stage['pickup_right'] %}required{% endif %}>
+        <input type="file" name="pickup_right" accept="image/*" capture="environment" {% if not photos_by_stage['pickup_right'] %}required{% endif %}>
         {% if photos_by_stage['pickup_right'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_right'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['pickup_right'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Lato sinistro</label>
-        <input type="file" name="pickup_left" accept="image/*" {% if not photos_by_stage['pickup_left'] %}required{% endif %}>
+        <input type="file" name="pickup_left" accept="image/*" capture="environment" {% if not photos_by_stage['pickup_left'] %}required{% endif %}>
         {% if photos_by_stage['pickup_left'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_left'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['pickup_left'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Interno</label>
-        <input type="file" name="pickup_inside" accept="image/*" {% if not photos_by_stage['pickup_inside'] %}required{% endif %}>
+        <input type="file" name="pickup_inside" accept="image/*" capture="environment" {% if not photos_by_stage['pickup_inside'] %}required{% endif %}>
         {% if photos_by_stage['pickup_inside'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['pickup_inside'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['pickup_inside'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <button type="submit">Conferma presa in carico</button>
@@ -112,33 +112,33 @@
         <h3>Foto riconsegna</h3>
 
         <label>Anteriore</label>
-        <input type="file" name="return_front" accept="image/*">
+        <input type="file" name="return_front" accept="image/*" capture="environment">
         {% if photos_by_stage['return_front'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_front'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['return_front'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Posteriore</label>
-        <input type="file" name="return_rear" accept="image/*">
+        <input type="file" name="return_rear" accept="image/*" capture="environment">
         {% if photos_by_stage['return_rear'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_rear'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['return_rear'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Lato destro</label>
-        <input type="file" name="return_right" accept="image/*">
+        <input type="file" name="return_right" accept="image/*" capture="environment">
         {% if photos_by_stage['return_right'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_right'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['return_right'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Lato sinistro</label>
-        <input type="file" name="return_left" accept="image/*">
+        <input type="file" name="return_left" accept="image/*" capture="environment">
         {% if photos_by_stage['return_left'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_left'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['return_left'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <label>Interno</label>
-        <input type="file" name="return_inside" accept="image/*">
+        <input type="file" name="return_inside" accept="image/*" capture="environment">
         {% if photos_by_stage['return_inside'] %}
-            <div><img src="{{ url_for('uploaded_file', filename=photos_by_stage['return_inside'].filename) }}" width="120"></div>
+            <div><img src="{{ photos_by_stage['return_inside'].filename }}" width="140" style="border-radius:8px;"></div>
         {% endif %}
 
         <button type="submit">Conferma riconsegna</button>
@@ -152,8 +152,8 @@
             {% for photo in photos %}
                 <div style="margin-bottom: 20px;">
                     <div><strong>{{ photo_labels.get(photo.stage, photo.stage) }}</strong></div>
-                    <a href="{{ url_for('uploaded_file', filename=photo.filename) }}" target="_blank">
-                        <img src="{{ url_for('uploaded_file', filename=photo.filename) }}" alt="foto mezzo" width="180">
+                    <a href="{{ photo.filename }}" target="_blank">
+                        <img src="{{ photo.filename }}" alt="foto mezzo" width="180" style="border-radius:8px;">
                     </a>
                 </div>
             {% endfor %}
@@ -164,5 +164,4 @@
 </div>
 
 {% endblock %}
-
 
