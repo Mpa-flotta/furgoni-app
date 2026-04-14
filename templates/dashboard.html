@@ -27,7 +27,6 @@
 <hr>
 
 <h2>Nuova assegnazione</h2>
-
 <form method="post" action="{{ url_for('create_assignment') }}">
   <select name="driver_id" required>
     <option value="">Seleziona autista</option>
@@ -50,48 +49,66 @@
 
 <h2>Assegnazioni</h2>
 
-<table border="1" cellpadding="10" cellspacing="0">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Autista</th>
-      <th>Furgone</th>
-      <th>Stato</th>
-      <th>Data</th>
-      <th>Link Autista</th>
-      <th>PDF</th>
-    </tr>
-  </thead>
+<div style="overflow-x:auto;">
+  <table border="1" cellpadding="10" cellspacing="0" style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Data</th>
+        <th>Autista</th>
+        <th>Furgone</th>
+        <th>Stato</th>
+        <th>Foto</th>
+        <th>Anteprima</th>
+        <th>Link Autista</th>
+        <th>PDF</th>
+      </tr>
+    </thead>
 
-  <tbody>
-    {% for a in assignments %}
-    <tr>
-      <td>{{ a.id }}</td>
-      <td>{{ a.driver_name }}</td>
-      <td>{{ a.plate }}</td>
-      <td>{{ a.status }}</td>
-      <td>{{ a.created_at }}</td>
+    <tbody>
+      {% for a in assignments %}
+      <tr>
+        <td>{{ a.id }}</td>
+        <td>{{ a.created_at }}</td>
+        <td>{{ a.driver_name }}</td>
+        <td>{{ a.plate }} - {{ a.model }}</td>
+        <td>{{ a.status }}</td>
+        <td>{{ a.photo_count }}</td>
 
-      <td>
-        <a href="{{ url_for('driver_portal', token=a.token) }}" target="_blank">
-          Vai
-        </a>
-      </td>
+        <td>
+          {% if a.first_photo %}
+            <a href="{{ url_for('uploaded_file', filename=a.first_photo) }}" target="_blank">
+              <img
+                src="{{ url_for('uploaded_file', filename=a.first_photo) }}"
+                alt="anteprima foto"
+                style="width:90px; height:70px; object-fit:cover; border-radius:8px; border:1px solid #ccc;"
+              >
+            </a>
+          {% else %}
+            Nessuna foto
+          {% endif %}
+        </td>
 
-      <td>
-        <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
-          📄 PDF
-        </a>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+        <td>
+          <a href="{{ url_for('driver_portal', token=a.token) }}" target="_blank">
+            Vai
+          </a>
+        </td>
+
+        <td>
+          <a href="{{ url_for('genera_pdf', assignment_id=a.id) }}" target="_blank">
+            📄 PDF
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
 <hr>
 
 <h2>Nuovo autista</h2>
-
 <form method="post" action="{{ url_for('create_driver') }}">
   <input type="text" name="full_name" placeholder="Nome completo" required>
   <input type="text" name="phone" placeholder="Telefono">
@@ -102,7 +119,6 @@
 <hr>
 
 <h2>Nuovo furgone</h2>
-
 <form method="post" action="{{ url_for('create_van') }}">
   <input type="text" name="plate" placeholder="Targa" required>
   <input type="text" name="model" placeholder="Modello" required>
