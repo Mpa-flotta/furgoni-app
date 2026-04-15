@@ -1,4 +1,5 @@
 from __future__ import annotations
+from werkzeug.security import generate_password_hash
 
 import io
 import os
