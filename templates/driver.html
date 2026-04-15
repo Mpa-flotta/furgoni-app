@@ -42,7 +42,7 @@
         <textarea name="pickup_notes" rows="4" placeholder="Segnala danni o anomalie">{{ assignment.pickup_notes or '' }}</textarea>
 
         <label>Firma presa in carico</label>
-        <input type="text" name="pickup_signature" value="{{ assignment.pickup_signature or assignment.driver_name }}" required>
+        <input type="text" value="{{ assignment.driver_name }}" readonly style="background:#f1f1f1;">
 
         <h3>Foto obbligatorie presa in carico</h3>
 
@@ -107,7 +107,7 @@
         <textarea name="return_notes" rows="4" placeholder="Segnala eventuali danni o problemi">{{ assignment.return_notes or '' }}</textarea>
 
         <label>Firma riconsegna</label>
-        <input type="text" name="return_signature" value="{{ assignment.return_signature or assignment.driver_name }}" required>
+        <input type="text" value="{{ assignment.driver_name }}" readonly style="background:#f1f1f1;">
 
         <h3>Foto riconsegna</h3>
 
