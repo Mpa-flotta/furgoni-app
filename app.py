@@ -31,6 +31,10 @@ from reportlab.pdfgen import canvas
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
+# =========================
+# CONFIG
+# =========================
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL non configurata")
@@ -41,12 +45,16 @@ app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024
 
 cloudinary.config(secure=True)
 
-DEFAULT_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin12345")
-DEFAULT_ADMIN_PASSWORD_HASH = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
 
-MAX_IMAGE_SIZE = (1600, 1600)
-JPEG_QUALITY = 72
+DEFAULT_APPALTI = [
+    "AmazonDPI3",
+    "AmazonDLO7",
+    "TORTONA TABACCHI",
+    "VIAREGGIO TABACCHI",
+    "SAN MAURO TABACCHI",
+    "GENOVA TABACCHI",
+]
 
 PHOTO_LABELS = {
     "pickup_front": "Presa in carico - Anteriore",
@@ -61,6 +69,13 @@ PHOTO_LABELS = {
     "return_inside": "Riconsegna - Interno",
 }
 
+MAX_IMAGE_SIZE = (1600, 1600)
+JPEG_QUALITY = 72
+
+
+# =========================
+# HELPERS
+# =========================
 
 def now_iso() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -86,6 +101,19 @@ def only_date(value: str | None) -> str:
         return str(value)
 
 
+def slugify_username(text: str) -> str:
+    cleaned = (
+        text.lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+        .replace("/", "_")
+        .replace(".", "_")
+    )
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+    return cleaned.strip("_")
+
+
 def get_db():
     if "db" not in g:
         g.db = psycopg.connect(DATABASE_URL, row_factory=dict_row)
@@ -97,6 +125,14 @@ def close_db(exception=None):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
+def current_appalto_id() -> int | None:
+    return session.get("appalto_id")
+
+
+def current_appalto_nome() -> str | None:
+    return session.get("appalto_nome")
 
 
 def optimize_image(file_obj) -> io.BytesIO:
@@ -119,100 +155,6 @@ def optimize_image(file_obj) -> io.BytesIO:
     )
     output.seek(0)
     return output
-
-
-def init_db() -> None:
-    with psycopg.connect(DATABASE_URL, row_factory=dict_row) as db:
-        with db.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS admin_users (
-                    id SERIAL PRIMARY KEY,
-                    username TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-            """)
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS drivers (
-                    id SERIAL PRIMARY KEY,
-                    full_name TEXT NOT NULL,
-                    phone TEXT,
-                    email TEXT,
-                    pin TEXT
-                );
-            """)
-
-            cur.execute("ALTER TABLE drivers ADD COLUMN IF NOT EXISTS pin TEXT;")
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS vans (
-                    id SERIAL PRIMARY KEY,
-                    plate TEXT NOT NULL UNIQUE,
-                    model TEXT NOT NULL,
-                    current_km INTEGER DEFAULT 0,
-                    status TEXT DEFAULT 'Disponibile'
-                );
-            """)
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS assignments (
-                    id SERIAL PRIMARY KEY,
-                    driver_id INTEGER NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
-                    van_id INTEGER NOT NULL REFERENCES vans(id) ON DELETE CASCADE,
-                    token TEXT NOT NULL UNIQUE,
-                    status TEXT NOT NULL DEFAULT 'Assegnato',
-                    created_at TEXT NOT NULL,
-                    pickup_at TEXT,
-                    return_at TEXT,
-                    pickup_km INTEGER,
-                    pickup_fuel TEXT,
-                    pickup_notes TEXT,
-                    pickup_signature TEXT,
-                    return_km INTEGER,
-                    return_fuel TEXT,
-                    return_notes TEXT,
-                    return_signature TEXT,
-                    body_ok INTEGER DEFAULT 0,
-                    tyres_ok INTEGER DEFAULT 0,
-                    docs_ok INTEGER DEFAULT 0,
-                    lights_ok INTEGER DEFAULT 0
-                );
-            """)
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS photos (
-                    id SERIAL PRIMARY KEY,
-                    assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
-                    stage TEXT NOT NULL,
-                    filename TEXT NOT NULL,
-                    uploaded_at TEXT NOT NULL
-                );
-            """)
-
-            cur.execute("SELECT COUNT(*) AS count FROM admin_users;")
-            admin_count = cur.fetchone()["count"]
-
-            if admin_count == 0:
-                cur.execute(
-                    """
-                    INSERT INTO admin_users (username, password_hash, created_at)
-                    VALUES (%s, %s, %s)
-                    """,
-                    (DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD_HASH, now_iso()),
-                )
-
-        db.commit()
-
-
-def admin_required(view_func):
-    @wraps(view_func)
-    def wrapped_view(*args, **kwargs):
-        if not session.get("admin_logged_in"):
-            return redirect(url_for("login"))
-        return view_func(*args, **kwargs)
-
-    return wrapped_view
 
 
 def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
@@ -264,13 +206,170 @@ def get_assignment_photos(assignment_id: int):
     return rows, photos_by_stage
 
 
+def admin_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+
+    return wrapped_view
+
+
+# =========================
+# DB INIT
+# =========================
+
+def init_db() -> None:
+    with psycopg.connect(DATABASE_URL, row_factory=dict_row) as db:
+        with db.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS appalti (
+                    id SERIAL PRIMARY KEY,
+                    nome TEXT NOT NULL UNIQUE
+                );
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    appalto_id INTEGER REFERENCES appalti(id),
+                    created_at TEXT NOT NULL
+                );
+            """)
+
+            cur.execute("""
+                ALTER TABLE admin_users
+                ADD COLUMN IF NOT EXISTS appalto_id INTEGER;
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS drivers (
+                    id SERIAL PRIMARY KEY,
+                    full_name TEXT NOT NULL,
+                    phone TEXT,
+                    email TEXT,
+                    pin TEXT,
+                    appalto_id INTEGER REFERENCES appalti(id)
+                );
+            """)
+
+            cur.execute("""
+                ALTER TABLE drivers
+                ADD COLUMN IF NOT EXISTS pin TEXT;
+            """)
+            cur.execute("""
+                ALTER TABLE drivers
+                ADD COLUMN IF NOT EXISTS appalto_id INTEGER;
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS vans (
+                    id SERIAL PRIMARY KEY,
+                    plate TEXT NOT NULL UNIQUE,
+                    model TEXT NOT NULL,
+                    current_km INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'Disponibile',
+                    appalto_id INTEGER REFERENCES appalti(id)
+                );
+            """)
+
+            cur.execute("""
+                ALTER TABLE vans
+                ADD COLUMN IF NOT EXISTS appalto_id INTEGER;
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS assignments (
+                    id SERIAL PRIMARY KEY,
+                    driver_id INTEGER NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+                    van_id INTEGER NOT NULL REFERENCES vans(id) ON DELETE CASCADE,
+                    token TEXT NOT NULL UNIQUE,
+                    status TEXT NOT NULL DEFAULT 'Assegnato',
+                    created_at TEXT NOT NULL,
+                    pickup_at TEXT,
+                    return_at TEXT,
+                    pickup_km INTEGER,
+                    pickup_fuel TEXT,
+                    pickup_notes TEXT,
+                    pickup_signature TEXT,
+                    return_km INTEGER,
+                    return_fuel TEXT,
+                    return_notes TEXT,
+                    return_signature TEXT,
+                    body_ok INTEGER DEFAULT 0,
+                    tyres_ok INTEGER DEFAULT 0,
+                    docs_ok INTEGER DEFAULT 0,
+                    lights_ok INTEGER DEFAULT 0,
+                    appalto_id INTEGER REFERENCES appalti(id)
+                );
+            """)
+
+            cur.execute("""
+                ALTER TABLE assignments
+                ADD COLUMN IF NOT EXISTS appalto_id INTEGER;
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS photos (
+                    id SERIAL PRIMARY KEY,
+                    assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+                    stage TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    uploaded_at TEXT NOT NULL
+                );
+            """)
+
+            for nome in DEFAULT_APPALTI:
+                cur.execute(
+                    "INSERT INTO appalti (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING",
+                    (nome,),
+                )
+
+            cur.execute("SELECT id, nome FROM appalti ORDER BY nome")
+            appalti = cur.fetchall()
+
+            password_hash = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+
+            for appalto in appalti:
+                username = f"admin_{slugify_username(appalto['nome'])}"
+                cur.execute(
+                    """
+                    INSERT INTO admin_users (username, password_hash, appalto_id, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (username) DO NOTHING
+                    """,
+                    (username, password_hash, appalto["id"], now_iso()),
+                )
+
+            # Allineamento dati vecchi senza appalto:
+            # se esiste un solo admin con appalto, puoi spostare manualmente dopo.
+            # qui non forziamo migrazioni automatiche sui dati esistenti per evitare errori.
+
+        db.commit()
+
+
+# =========================
+# DASHBOARD DATA
+# =========================
+
 def fetch_dashboard_data() -> dict[str, Any]:
     db = get_db()
+    appalto_id = current_appalto_id()
+
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM drivers ORDER BY full_name")
+        cur.execute(
+            "SELECT * FROM drivers WHERE appalto_id = %s ORDER BY full_name",
+            (appalto_id,),
+        )
         drivers = cur.fetchall()
 
-        cur.execute("SELECT * FROM vans ORDER BY plate")
+        cur.execute(
+            "SELECT * FROM vans WHERE appalto_id = %s ORDER BY plate",
+            (appalto_id,),
+        )
         vans = cur.fetchall()
 
         cur.execute("""
@@ -295,22 +394,25 @@ def fetch_dashboard_data() -> dict[str, Any]:
             FROM assignments a
             JOIN drivers d ON d.id = a.driver_id
             JOIN vans v ON v.id = a.van_id
+            WHERE a.appalto_id = %s
             ORDER BY a.created_at DESC, a.id DESC
-        """)
+        """, (appalto_id,))
         assignments = cur.fetchall()
 
         cur.execute("""
             SELECT COUNT(*) AS count
             FROM assignments
-            WHERE status IN ('Assegnato', 'Preso in carico')
-        """)
+            WHERE appalto_id = %s
+            AND status IN ('Assegnato', 'Preso in carico')
+        """, (appalto_id,))
         active_count = cur.fetchone()["count"]
 
         cur.execute("""
             SELECT COUNT(*) AS count
             FROM assignments
-            WHERE status = 'Riconsegnato'
-        """)
+            WHERE appalto_id = %s
+            AND status = 'Riconsegnato'
+        """, (appalto_id,))
         completed_count = cur.fetchone()["count"]
 
     grouped_assignments = {}
@@ -334,8 +436,13 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "daily_counts": daily_counts,
         "active_count": active_count,
         "completed_count": completed_count,
+        "appalto_nome": current_appalto_nome(),
     }
 
+
+# =========================
+# ROUTES AUTH
+# =========================
 
 @app.route("/")
 def home():
@@ -352,12 +459,19 @@ def login():
 
         db = get_db()
         with db.cursor() as cur:
-            cur.execute("SELECT * FROM admin_users WHERE username = %s", (username,))
+            cur.execute("""
+                SELECT au.*, a.nome AS appalto_nome
+                FROM admin_users au
+                LEFT JOIN appalti a ON a.id = au.appalto_id
+                WHERE au.username = %s
+            """, (username,))
             user = cur.fetchone()
 
         if user and check_password_hash(user["password_hash"], password):
             session["admin_logged_in"] = True
             session["admin_username"] = username
+            session["appalto_id"] = user["appalto_id"]
+            session["appalto_nome"] = user["appalto_nome"]
             flash("Login effettuato correttamente.", "success")
             return redirect(url_for("dashboard"))
 
@@ -373,12 +487,117 @@ def logout():
     return redirect(url_for("login"))
 
 
+# =========================
+# ROUTES ADMIN
+# =========================
+
 @app.route("/dashboard")
 @admin_required
 def dashboard():
     data = fetch_dashboard_data()
     return render_template("dashboard.html", **data)
 
+
+@app.post("/drivers/create")
+@admin_required
+def create_driver():
+    full_name = request.form.get("full_name", "").strip()
+    phone = request.form.get("phone", "").strip()
+    email = request.form.get("email", "").strip()
+    pin = request.form.get("pin", "").strip()
+    appalto_id = current_appalto_id()
+
+    if not full_name or not pin:
+        flash("Nome e PIN sono obbligatori.", "error")
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO drivers (full_name, phone, email, pin, appalto_id)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (full_name, phone, email, pin, appalto_id),
+        )
+    db.commit()
+
+    flash("Autista creato correttamente.", "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.post("/drivers/delete/<int:driver_id>")
+@admin_required
+def delete_driver(driver_id: int):
+    db = get_db()
+    appalto_id = current_appalto_id()
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                "DELETE FROM drivers WHERE id = %s AND appalto_id = %s",
+                (driver_id, appalto_id),
+            )
+        db.commit()
+        flash("Autista eliminato correttamente.", "success")
+    except Exception:
+        db.rollback()
+        flash("Impossibile eliminare l'autista. Potrebbe avere pratiche collegate.", "error")
+    return redirect(url_for("dashboard"))
+
+
+@app.post("/vans/create")
+@admin_required
+def create_van():
+    plate = request.form.get("plate", "").strip().upper()
+    model = request.form.get("model", "").strip()
+    current_km = request.form.get("current_km", "0").strip()
+    appalto_id = current_appalto_id()
+
+    if not plate or not model:
+        flash("Targa e modello sono obbligatori.", "error")
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO vans (plate, model, current_km, status, appalto_id)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (plate, model, int(current_km or 0), "Disponibile", appalto_id),
+            )
+        db.commit()
+        flash("Furgone creato correttamente.", "success")
+    except psycopg.errors.UniqueViolation:
+        db.rollback()
+        flash("La targa esiste già.", "error")
+
+    return redirect(url_for("dashboard"))
+
+
+@app.post("/vans/delete/<int:van_id>")
+@admin_required
+def delete_van(van_id: int):
+    db = get_db()
+    appalto_id = current_appalto_id()
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                "DELETE FROM vans WHERE id = %s AND appalto_id = %s",
+                (van_id, appalto_id),
+            )
+        db.commit()
+        flash("Furgone eliminato correttamente.", "success")
+    except Exception:
+        db.rollback()
+        flash("Impossibile eliminare il furgone. Potrebbe avere pratiche collegate.", "error")
+    return redirect(url_for("dashboard"))
+
+
+# =========================
+# ROUTES DRIVER
+# =========================
 
 @app.route("/driver", methods=["GET", "POST"])
 def driver_select():
@@ -408,7 +627,15 @@ def driver_select():
                 van_id = request.form.get("van_id")
 
                 if van_id:
-                    cur.execute("SELECT * FROM vans WHERE id = %s", (van_id,))
+                    cur.execute(
+                        """
+                        SELECT *
+                        FROM vans
+                        WHERE id = %s
+                        AND appalto_id = %s
+                        """,
+                        (van_id, driver["appalto_id"]),
+                    )
                     van = cur.fetchone()
 
                     if not van or van["status"] != "Disponibile":
@@ -418,11 +645,18 @@ def driver_select():
 
                         cur.execute(
                             """
-                            INSERT INTO assignments (driver_id, van_id, token, created_at, status)
-                            VALUES (%s, %s, %s, %s, %s)
+                            INSERT INTO assignments (driver_id, van_id, token, created_at, status, appalto_id)
+                            VALUES (%s, %s, %s, %s, %s, %s)
                             RETURNING token
                             """,
-                            (driver["id"], van_id, token, now_iso(), "Assegnato"),
+                            (
+                                driver["id"],
+                                van_id,
+                                token,
+                                now_iso(),
+                                "Assegnato",
+                                driver["appalto_id"],
+                            ),
                         )
                         new_assignment = cur.fetchone()
 
@@ -439,8 +673,10 @@ def driver_select():
                 SELECT *
                 FROM vans
                 WHERE status = 'Disponibile'
+                AND appalto_id = %s
                 ORDER BY plate
-                """
+                """,
+                (driver["appalto_id"],),
             )
             available_vans = cur.fetchall()
 
@@ -455,10 +691,11 @@ def driver_select():
                 FROM assignments a
                 JOIN vans v ON v.id = a.van_id
                 WHERE a.driver_id = %s
+                AND a.appalto_id = %s
                 AND a.status != 'Riconsegnato'
                 ORDER BY a.id DESC
                 """,
-                (driver["id"],),
+                (driver["id"], driver["appalto_id"]),
             )
             assignments = cur.fetchall()
 
@@ -468,90 +705,6 @@ def driver_select():
         assignments=assignments,
         available_vans=available_vans,
     )
-
-
-@app.post("/drivers/create")
-@admin_required
-def create_driver():
-    full_name = request.form.get("full_name", "").strip()
-    phone = request.form.get("phone", "").strip()
-    email = request.form.get("email", "").strip()
-    pin = request.form.get("pin", "").strip()
-
-    if not full_name or not pin:
-        flash("Nome e PIN sono obbligatori.", "error")
-        return redirect(url_for("dashboard"))
-
-    db = get_db()
-    with db.cursor() as cur:
-        cur.execute(
-            "INSERT INTO drivers (full_name, phone, email, pin) VALUES (%s, %s, %s, %s)",
-            (full_name, phone, email, pin),
-        )
-    db.commit()
-
-    flash("Autista creato correttamente.", "success")
-    return redirect(url_for("dashboard"))
-
-
-@app.post("/drivers/delete/<int:driver_id>")
-@admin_required
-def delete_driver(driver_id: int):
-    db = get_db()
-    try:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM drivers WHERE id = %s", (driver_id,))
-        db.commit()
-        flash("Autista eliminato correttamente.", "success")
-    except Exception:
-        db.rollback()
-        flash("Impossibile eliminare l'autista. Potrebbe avere pratiche collegate.", "error")
-    return redirect(url_for("dashboard"))
-
-
-@app.post("/vans/create")
-@admin_required
-def create_van():
-    plate = request.form.get("plate", "").strip().upper()
-    model = request.form.get("model", "").strip()
-    current_km = request.form.get("current_km", "0").strip()
-
-    if not plate or not model:
-        flash("Targa e modello sono obbligatori.", "error")
-        return redirect(url_for("dashboard"))
-
-    db = get_db()
-    try:
-        with db.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO vans (plate, model, current_km, status)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (plate, model, int(current_km or 0), "Disponibile"),
-            )
-        db.commit()
-        flash("Furgone creato correttamente.", "success")
-    except psycopg.errors.UniqueViolation:
-        db.rollback()
-        flash("La targa esiste già.", "error")
-
-    return redirect(url_for("dashboard"))
-
-
-@app.post("/vans/delete/<int:van_id>")
-@admin_required
-def delete_van(van_id: int):
-    db = get_db()
-    try:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM vans WHERE id = %s", (van_id,))
-        db.commit()
-        flash("Furgone eliminato correttamente.", "success")
-    except Exception:
-        db.rollback()
-        flash("Impossibile eliminare il furgone. Potrebbe avere pratiche collegate.", "error")
-    return redirect(url_for("dashboard"))
 
 
 @app.route("/driver/<token>", methods=["GET", "POST"])
@@ -729,10 +882,15 @@ def driver_portal(token: str):
     )
 
 
+# =========================
+# PDF
+# =========================
+
 @app.route("/pdf/<int:assignment_id>")
 @admin_required
 def genera_pdf(assignment_id: int):
     db = get_db()
+    appalto_id = current_appalto_id()
 
     with db.cursor() as cur:
         cur.execute(
@@ -748,8 +906,9 @@ def genera_pdf(assignment_id: int):
             JOIN drivers d ON d.id = a.driver_id
             JOIN vans v ON v.id = a.van_id
             WHERE a.id = %s
+            AND a.appalto_id = %s
             """,
-            (assignment_id,),
+            (assignment_id, appalto_id),
         )
         assignment = cur.fetchone()
 
@@ -839,6 +998,7 @@ def genera_pdf(assignment_id: int):
     pdf.setTitle(f"report_{assignment_id}.pdf")
 
     write_line("REPORT GIORNALIERO PRESA IN CARICO MEZZO", size=16, step=28, bold=True)
+    write_line(f"Appalto: {current_appalto_nome() or ''}", size=11, step=20)
     write_line(f"Generato il: {datetime.now().strftime('%d/%m/%Y %H:%M')}", size=10, step=22)
 
     write_line(f"Data pratica: {only_date(assignment['created_at'])}")
