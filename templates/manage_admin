@@ -1,57 +1,65 @@
-<h1>Gestione Admin</h1>
+{% extends 'base.html' %}
+{% block content %}
 
-<h2>➕ Crea Admin</h2>
-<form method="post">
-    <input type="hidden" name="action" value="create">
+<div class="card">
+    <h1>Gestione Admin</h1>
 
-    <input type="text" name="username" placeholder="Username" required>
-    <input type="text" name="password" placeholder="Password" required>
+    <h2>➕ Crea Admin</h2>
+    <form method="post">
+        <input type="hidden" name="action" value="create">
 
-    <select name="appalto">
-        <option>AmazonDPI3</option>
-        <option>AmazonDLO7</option>
-        <option>TORTONA TABACCHI</option>
-        <option>VIAREGGIO TABACCHI</option>
-        <option>SAN MAURO TABACCHI</option>
-        <option>GENOVA TABACCHI</option>
-    </select>
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="text" name="password" placeholder="Password" required>
 
-    <button type="submit">Crea</button>
-</form>
+        <select name="appalto_id" required>
+            <option value="">Seleziona appalto</option>
+            {% for a in appalti %}
+                <option value="{{ a.id }}">{{ a.nome }}</option>
+            {% endfor %}
+        </select>
 
-<hr>
+        <button type="submit">Crea</button>
+    </form>
+</div>
 
-<h2>👥 Admin esistenti</h2>
+<div class="card">
+    <h2>👥 Admin esistenti</h2>
 
-<table border="1" cellpadding="10">
-    <tr>
-        <th>Username</th>
-        <th>Appalto</th>
-        <th>Password</th>
-        <th>Elimina</th>
-    </tr>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Appalto</th>
+                <th>Password</th>
+                <th>Elimina</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in admins %}
+            <tr>
+                <td>{{ a.username }}</td>
+                <td>{{ a.appalto_nome or '-' }}</td>
 
-    {% for a in admins %}
-    <tr>
-        <td>{{ a.username }}</td>
-        <td>{{ a.appalto }}</td>
+                <td>
+                    <form method="post">
+                        <input type="hidden" name="action" value="change_password">
+                        <input type="hidden" name="user_id" value="{{ a.id }}">
+                        <input type="text" name="new_password" placeholder="Nuova password" required>
+                        <button type="submit">Cambia</button>
+                    </form>
+                </td>
 
-        <td>
-            <form method="post">
-                <input type="hidden" name="action" value="change_password">
-                <input type="hidden" name="user_id" value="{{ a.id }}">
-                <input type="text" name="new_password" placeholder="Nuova password">
-                <button type="submit">Cambia</button>
-            </form>
-        </td>
+                <td>
+                    <form method="post" onsubmit="return confirm('Eliminare admin?');">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="user_id" value="{{ a.id }}">
+                        <button type="submit">❌</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
-        <td>
-            <form method="post">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="user_id" value="{{ a.id }}">
-                <button type="submit">❌</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+{% endblock %}
