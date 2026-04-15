@@ -499,6 +499,56 @@ def dashboard():
     return render_template("dashboard.html", **data)
 
 
+@app.route("/admin/manage", methods=["GET", "POST"])
+def manage_admin():
+    if not session.get("admin_logged"):
+        return redirect(url_for("login"))
+
+    with db.cursor() as cur:
+        # CREA ADMIN
+        if request.method == "POST" and request.form.get("action") == "create":
+            username = request.form.get("username")
+            password = request.form.get("password")
+            appalto = request.form.get("appalto")
+
+            password_hash = generate_password_hash(password)
+
+            cur.execute("""
+                INSERT INTO admin_users (username, password_hash, appalto)
+                VALUES (%s, %s, %s)
+            """, (username, password_hash, appalto))
+
+            db.commit()
+
+        # CAMBIA PASSWORD
+        if request.method == "POST" and request.form.get("action") == "change_password":
+            user_id = request.form.get("user_id")
+            new_password = request.form.get("new_password")
+
+            password_hash = generate_password_hash(new_password)
+
+            cur.execute("""
+                UPDATE admin_users
+                SET password_hash = %s
+                WHERE id = %s
+            """, (password_hash, user_id))
+
+            db.commit()
+
+        # ELIMINA ADMIN
+        if request.method == "POST" and request.form.get("action") == "delete":
+            user_id = request.form.get("user_id")
+
+            cur.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+            db.commit()
+
+        # LISTA ADMIN
+        cur.execute("SELECT id, username, appalto FROM admin_users")
+        admins = cur.fetchall()
+
+    return render_template("manage_admin.html", admins=admins)
+
+
 @app.post("/drivers/create")
 @admin_required
 def create_driver():
