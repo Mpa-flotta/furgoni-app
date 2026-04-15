@@ -4,9 +4,12 @@
 <div class="topbar">
     <div>
         <h1>Dashboard presa in carico furgoni</h1>
-        <div class="muted">Area amministratore{% if appalto_nome %} · {{ appalto_nome }}{% endif %}</div>
+        <div class="muted">
+            Area amministratore{% if appalto_nome %} · {{ appalto_nome }}{% endif %}
+        </div>
     </div>
-    <div>
+    <div style="display:flex; gap:12px; align-items:center;">
+        <a href="{{ url_for('manage_admin') }}">Gestione admin</a>
         <a href="{{ url_for('logout') }}">Esci</a>
     </div>
 </div>
