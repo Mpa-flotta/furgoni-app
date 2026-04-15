@@ -1147,6 +1147,21 @@ def manage_admin():
         appalti = cur.fetchall()
 
     return render_template("manage_admin.html", admins=admins, appalti=appalti)
+
+
+@app.route("/admin/manage/login", methods=["GET", "POST"])
+@admin_required
+def manage_login():
+    if request.method == "POST":
+        password = request.form.get("password")
+
+        if password == os.environ.get("ADMIN_MANAGE_PASSWORD"):
+            session["manage_access"] = True
+            return redirect(url_for("manage_admin"))
+        else:
+            flash("Password errata", "error")
+
+    return render_template("manage_login.html")
     
 
 init_db()
