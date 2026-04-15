@@ -4,7 +4,7 @@
 <div class="topbar">
     <div>
         <h1>Dashboard presa in carico furgoni</h1>
-        <div class="muted">Area amministratore</div>
+        <div class="muted">Area amministratore{% if appalto_nome %} · {{ appalto_nome }}{% endif %}</div>
     </div>
     <div>
         <a href="{{ url_for('logout') }}">Esci</a>
