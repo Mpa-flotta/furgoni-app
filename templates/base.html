@@ -1,43 +1,137 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or 'App Furgoni' }}</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1f2937; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
-    .card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); margin-bottom: 16px; }
-    .grid { display: grid; gap: 16px; }
-    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    input, select, textarea, button { width: 100%; padding: 10px 12px; margin-top: 8px; margin-bottom: 12px; border: 1px solid #d1d5db; border-radius: 10px; box-sizing: border-box; }
-    button { background: #111827; color: white; border: none; cursor: pointer; }
-    button:hover { opacity: 0.95; }
-    a { color: #1d4ed8; text-decoration: none; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
-    .badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; background: #e5e7eb; }
-    .small { font-size: 12px; color: #6b7280; word-break: break-all; }
-    .flash { padding: 10px 12px; border-radius: 12px; margin-bottom: 12px; background: #eef2ff; }
-    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
-    .stats { font-size: 28px; font-weight: bold; }
-    .muted { color: #6b7280; }
-    .gallery { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-    .gallery img { width:100%; height:120px; object-fit:cover; border-radius:12px; }
-    .row { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Gestione Furgoni</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .topbar a {
+            text-decoration: none;
+            padding: 8px 12px;
+            background: #333;
+            color: #fff;
+            border-radius: 6px;
+        }
+
+        .card {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        .stats {
+            font-size: 26px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .muted {
+            color: #777;
+            font-size: 14px;
+        }
+
+        input, select, textarea {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f0f0f0;
+        }
+
+        img {
+            max-width: 100%;
+        }
+
+        .flash {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+        }
+
+        .flash.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .flash.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
 </head>
+
 <body>
-  <div class="container">
+
+    <!-- Messaggi flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
     {% endwith %}
-    {% block content %}{% endblock %}
-  </div>
+
+    <!-- Contenuto -->
+    {% block content %}
+    {% endblock %}
+
 </body>
 </html>
