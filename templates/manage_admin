@@ -1,0 +1,57 @@
+<h1>Gestione Admin</h1>
+
+<h2>➕ Crea Admin</h2>
+<form method="post">
+    <input type="hidden" name="action" value="create">
+
+    <input type="text" name="username" placeholder="Username" required>
+    <input type="text" name="password" placeholder="Password" required>
+
+    <select name="appalto">
+        <option>AmazonDPI3</option>
+        <option>AmazonDLO7</option>
+        <option>TORTONA TABACCHI</option>
+        <option>VIAREGGIO TABACCHI</option>
+        <option>SAN MAURO TABACCHI</option>
+        <option>GENOVA TABACCHI</option>
+    </select>
+
+    <button type="submit">Crea</button>
+</form>
+
+<hr>
+
+<h2>👥 Admin esistenti</h2>
+
+<table border="1" cellpadding="10">
+    <tr>
+        <th>Username</th>
+        <th>Appalto</th>
+        <th>Password</th>
+        <th>Elimina</th>
+    </tr>
+
+    {% for a in admins %}
+    <tr>
+        <td>{{ a.username }}</td>
+        <td>{{ a.appalto }}</td>
+
+        <td>
+            <form method="post">
+                <input type="hidden" name="action" value="change_password">
+                <input type="hidden" name="user_id" value="{{ a.id }}">
+                <input type="text" name="new_password" placeholder="Nuova password">
+                <button type="submit">Cambia</button>
+            </form>
+        </td>
+
+        <td>
+            <form method="post">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="user_id" value="{{ a.id }}">
+                <button type="submit">❌</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
