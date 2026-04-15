@@ -1075,6 +1075,10 @@ def uploaded_file(filename: str):
 @app.route("/admin/manage", methods=["GET", "POST"])
 @admin_required
 def manage_admin():
+    # 🔒 controllo password extra
+    if not session.get("manage_access"):
+        return redirect(url_for("manage_login"))
+
     db = get_db()
 
     if request.method == "POST":
@@ -1086,103 +1090,63 @@ def manage_admin():
             appalto_id = request.form.get("appalto_id", "").strip()
 
             if not username or not password or not appalto_id:
-                flash("Username, password e appalto sono obbligatori.", "error")
+                flash("Campi obbligatori.", "error")
                 return redirect(url_for("manage_admin"))
 
-            try:
-                password_hash = generate_password_hash(password)
+            password_hash = generate_password_hash(password)
 
-                with db.cursor() as cur:
-                    cur.execute(
-                        """
-                        INSERT INTO admin_users (username, password_hash, appalto_id, created_at)
-                        VALUES (%s, %s, %s, %s)
-                        """,
-                        (username, password_hash, int(appalto_id), now_iso()),
-                    )
-                db.commit()
-                flash("Admin creato correttamente.", "success")
-            except psycopg.errors.UniqueViolation:
-                db.rollback()
-                flash("Username già esistente.", "error")
-            except Exception:
-                db.rollback()
-                flash("Errore durante la creazione dell'admin.", "error")
+            with db.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO admin_users (username, password_hash, appalto_id, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (username, password_hash, int(appalto_id), now_iso()),
+                )
+            db.commit()
 
+            flash("Admin creato.", "success")
             return redirect(url_for("manage_admin"))
 
         if action == "change_password":
-            user_id = request.form.get("user_id", "").strip()
-            new_password = request.form.get("new_password", "").strip()
+            user_id = request.form.get("user_id")
+            new_password = request.form.get("new_password")
 
-            if not user_id or not new_password:
-                flash("Nuova password mancante.", "error")
-                return redirect(url_for("manage_admin"))
+            password_hash = generate_password_hash(new_password)
 
-            try:
-                password_hash = generate_password_hash(new_password)
+            with db.cursor() as cur:
+                cur.execute(
+                    "UPDATE admin_users SET password_hash = %s WHERE id = %s",
+                    (password_hash, int(user_id)),
+                )
+            db.commit()
 
-                with db.cursor() as cur:
-                    cur.execute(
-                        """
-                        UPDATE admin_users
-                        SET password_hash = %s
-                        WHERE id = %s
-                        """,
-                        (password_hash, int(user_id)),
-                    )
-                db.commit()
-                flash("Password aggiornata correttamente.", "success")
-            except Exception:
-                db.rollback()
-                flash("Errore durante l'aggiornamento della password.", "error")
-
+            flash("Password aggiornata.", "success")
             return redirect(url_for("manage_admin"))
 
         if action == "delete":
-            user_id = request.form.get("user_id", "").strip()
+            user_id = request.form.get("user_id")
 
-            if not user_id:
-                flash("Admin non valido.", "error")
-                return redirect(url_for("manage_admin"))
+            with db.cursor() as cur:
+                cur.execute("DELETE FROM admin_users WHERE id = %s", (int(user_id),))
+            db.commit()
 
-            try:
-                with db.cursor() as cur:
-                    cur.execute("DELETE FROM admin_users WHERE id = %s", (int(user_id),))
-                db.commit()
-                flash("Admin eliminato correttamente.", "success")
-            except Exception:
-                db.rollback()
-                flash("Errore durante l'eliminazione dell'admin.", "error")
-
+            flash("Admin eliminato.", "success")
             return redirect(url_for("manage_admin"))
 
     with db.cursor() as cur:
         cur.execute("""
-            SELECT
-                au.id,
-                au.username,
-                au.appalto_id,
-                a.nome AS appalto_nome
+            SELECT au.id, au.username, a.nome AS appalto_nome
             FROM admin_users au
             LEFT JOIN appalti a ON a.id = au.appalto_id
             ORDER BY au.username
         """)
         admins = cur.fetchall()
 
-        cur.execute("""
-            SELECT id, nome
-            FROM appalti
-            ORDER BY nome
-        """)
+        cur.execute("SELECT id, nome FROM appalti ORDER BY nome")
         appalti = cur.fetchall()
 
-    return render_template(
-        "manage_admin.html",
-        admins=admins,
-        appalti=appalti,
-        appalto_nome=current_appalto_nome(),
-    )
+    return render_template("manage_admin.html", admins=admins, appalti=appalti)
     
 
 init_db()
