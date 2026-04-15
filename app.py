@@ -781,7 +781,7 @@ def driver_portal(token: str):
                         request.form.get("pickup_km") or None,
                         request.form.get("pickup_fuel", ""),
                         request.form.get("pickup_notes", ""),
-                        request.form.get("pickup_signature", ""),
+                        assignment["driver_name"],  # firma automatica fissa
                         1 if request.form.get("body_ok") else 0,
                         1 if request.form.get("tyres_ok") else 0,
                         1 if request.form.get("docs_ok") else 0,
@@ -830,7 +830,7 @@ def driver_portal(token: str):
                         request.form.get("return_km") or None,
                         request.form.get("return_fuel", ""),
                         request.form.get("return_notes", ""),
-                        request.form.get("return_signature", ""),
+                        assignment["driver_name"],  # firma automatica fissa
                         assignment["id"],
                     ),
                 )
@@ -876,7 +876,7 @@ def driver_portal(token: str):
         photos_by_stage=photos_by_stage,
         photo_labels=PHOTO_LABELS,
     )
-
+    
 
 # =========================
 # PDF
