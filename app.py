@@ -500,54 +500,66 @@ def dashboard():
 
 
 @app.route("/admin/manage", methods=["GET", "POST"])
+@admin_required
 def manage_admin():
-    if not session.get("admin_logged"):
-        return redirect(url_for("login"))
+    db = get_db()
 
     with db.cursor() as cur:
-        # CREA ADMIN
         if request.method == "POST" and request.form.get("action") == "create":
-            username = request.form.get("username")
-            password = request.form.get("password")
-            appalto = request.form.get("appalto")
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "").strip()
+            appalto_id = request.form.get("appalto_id")
 
-            password_hash = generate_password_hash(password)
+            if username and password and appalto_id:
+                password_hash = generate_password_hash(password)
+                cur.execute(
+                    """
+                    INSERT INTO admin_users (username, password_hash, appalto_id, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (username, password_hash, appalto_id, now_iso())
+                )
+                db.commit()
+                flash("Admin creato correttamente.", "success")
 
-            cur.execute("""
-                INSERT INTO admin_users (username, password_hash, appalto)
-                VALUES (%s, %s, %s)
-            """, (username, password_hash, appalto))
-
-            db.commit()
-
-        # CAMBIA PASSWORD
         if request.method == "POST" and request.form.get("action") == "change_password":
             user_id = request.form.get("user_id")
-            new_password = request.form.get("new_password")
+            new_password = request.form.get("new_password", "").strip()
 
-            password_hash = generate_password_hash(new_password)
+            if user_id and new_password:
+                password_hash = generate_password_hash(new_password)
+                cur.execute(
+                    """
+                    UPDATE admin_users
+                    SET password_hash = %s
+                    WHERE id = %s
+                    """,
+                    (password_hash, user_id)
+                )
+                db.commit()
+                flash("Password aggiornata correttamente.", "success")
 
-            cur.execute("""
-                UPDATE admin_users
-                SET password_hash = %s
-                WHERE id = %s
-            """, (password_hash, user_id))
-
-            db.commit()
-
-        # ELIMINA ADMIN
         if request.method == "POST" and request.form.get("action") == "delete":
             user_id = request.form.get("user_id")
 
-            cur.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
-            db.commit()
+            if user_id:
+                cur.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+                db.commit()
+                flash("Admin eliminato correttamente.", "success")
 
-        # LISTA ADMIN
-        cur.execute("SELECT id, username, appalto FROM admin_users")
+        cur.execute("""
+            SELECT au.id, au.username, a.nome AS appalto_nome
+            FROM admin_users au
+            LEFT JOIN appalti a ON a.id = au.appalto_id
+            ORDER BY au.username
+        """)
         admins = cur.fetchall()
 
-    return render_template("manage_admin.html", admins=admins)
+        cur.execute("SELECT * FROM appalti ORDER BY nome")
+        appalti = cur.fetchall()
 
+    return render_template("manage_admin.html", admins=admins, appalti=appalti)
+    
 
 @app.post("/drivers/create")
 @admin_required
