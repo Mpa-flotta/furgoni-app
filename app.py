@@ -5,6 +5,7 @@ import os
 import secrets
 import urllib.request
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -79,8 +80,7 @@ JPEG_QUALITY = 72
 # =========================
 
 def now_iso() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    return datetime.now(ZoneInfo("Europe/Rome")).strftime("%Y-%m-%d %H:%M:%S")
 
 def format_date(value: str | None) -> str:
     if not value:
