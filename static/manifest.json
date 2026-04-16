@@ -1,7 +1,7 @@
 {
   "name": "Furgoni App",
   "short_name": "Furgoni",
-  "start_url": "/",
+  "start_url": "/driver_select"
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0f172a",
