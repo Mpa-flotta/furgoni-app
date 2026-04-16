@@ -1,11 +1,16 @@
 {
-  "name": "Furgoni App",
+  "name": "Furgoni Autista",
   "short_name": "Furgoni",
-  "start_url": "/driver_select"
+  "start_url": "/driver",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0f172a",
   "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
     {
       "src": "/static/icon.png",
       "sizes": "512x512",
