@@ -140,6 +140,28 @@
 
 <h2>📅 Registro giornaliero prese in carico</h2>
 
+<form method="get" style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+    
+    <label><strong>Filtra per data:</strong></label>
+
+    <select name="filter_date" style="padding:6px;">
+        <option value="">Tutte le date</option>
+        {% for day in grouped_assignments.keys() %}
+            <option value="{{ day }}" {% if request.args.get('filter_date') == day %}selected{% endif %}>
+                {{ day }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" style="padding:6px 12px;">Filtra</button>
+
+    <a href="{{ url_for('dashboard') }}" style="padding:6px 12px; background:#ccc; text-decoration:none;">
+        Reset
+    </a>
+
+</form>
+
+
 {% if grouped_assignments %}
     {% for day, items in grouped_assignments.items() %}
         <div class="card" style="margin-bottom: 30px;">
