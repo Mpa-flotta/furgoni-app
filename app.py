@@ -1,14 +1,14 @@
-from __future__ import annotations
+   from __future__ import annotations
 
 import io
 import os
 import secrets
 import urllib.request
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from functools import wraps
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import cloudinary
 import cloudinary.uploader
@@ -55,7 +55,7 @@ DEFAULT_APPALTI = [
     "VIAREGGIO TABACCHI",
     "SAN MAURO TABACCHI",
     "GENOVA TABACCHI",
-    "SAPIO PIACENZA",
+    "Sapiopiacenza",
 ]
 
 PHOTO_LABELS = {
@@ -79,8 +79,17 @@ JPEG_QUALITY = 72
 # HELPERS
 # =========================
 
+def now_dt() -> datetime:
+    return datetime.now(ZoneInfo("Europe/Rome"))
+
+
 def now_iso() -> str:
-    return datetime.now(ZoneInfo("Europe/Rome")).strftime("%Y-%m-%d %H:%M:%S")
+    return now_dt().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def today_start_iso() -> str:
+    return now_dt().strftime("%Y-%m-%d") + " 00:00:00"
+
 
 def format_date(value: str | None) -> str:
     if not value:
@@ -217,6 +226,51 @@ def admin_required(view_func):
     return wrapped_view
 
 
+def release_stale_vans(appalto_id: int | None) -> None:
+    if not appalto_id:
+        return
+
+    db = get_db()
+    stale_cutoff = today_start_iso()
+
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT DISTINCT van_id
+            FROM assignments
+            WHERE appalto_id = %s
+              AND status IN ('Assegnato', 'Preso in carico')
+              AND created_at < %s
+            """,
+            (appalto_id, stale_cutoff),
+        )
+        stale_vans = [row["van_id"] for row in cur.fetchall()]
+
+        cur.execute(
+            """
+            UPDATE assignments
+            SET status = 'Scaduto non riconsegnato'
+            WHERE appalto_id = %s
+              AND status IN ('Assegnato', 'Preso in carico')
+              AND created_at < %s
+            """,
+            (appalto_id, stale_cutoff),
+        )
+
+        if stale_vans:
+            cur.execute(
+                """
+                UPDATE vans
+                SET status = 'Disponibile'
+                WHERE appalto_id = %s
+                  AND id = ANY(%s)
+                """,
+                (appalto_id, stale_vans),
+            )
+
+    db.commit()
+
+
 # =========================
 # DB INIT
 # =========================
@@ -269,7 +323,7 @@ def init_db() -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS vans (
                     id SERIAL PRIMARY KEY,
-                    plate TEXT NOT NULL UNIQUE,
+                    plate TEXT NOT NULL,
                     model TEXT NOT NULL,
                     current_km INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'Disponibile',
@@ -280,6 +334,18 @@ def init_db() -> None:
             cur.execute("""
                 ALTER TABLE vans
                 ADD COLUMN IF NOT EXISTS appalto_id INTEGER;
+            """)
+
+            # Se esiste il vecchio vincolo globale sulla targa, lo togliamo
+            cur.execute("""
+                ALTER TABLE vans
+                DROP CONSTRAINT IF EXISTS vans_plate_key;
+            """)
+
+            # Vincolo corretto: targa unica solo dentro lo stesso appalto
+            cur.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_vans_plate_appalto_unique
+                ON vans (plate, appalto_id);
             """)
 
             cur.execute("""
@@ -355,6 +421,8 @@ def init_db() -> None:
 def fetch_dashboard_data() -> dict[str, Any]:
     db = get_db()
     appalto_id = current_appalto_id()
+
+    release_stale_vans(appalto_id)
 
     with db.cursor() as cur:
         cur.execute(
@@ -495,6 +563,119 @@ def dashboard():
     return render_template("dashboard.html", **data)
 
 
+@app.route("/admin/manage", methods=["GET", "POST"])
+@admin_required
+def manage_admin():
+    db = get_db()
+
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+
+        if action == "create":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "").strip()
+            appalto_id = request.form.get("appalto_id", "").strip()
+
+            if not username or not password or not appalto_id:
+                flash("Username, password e appalto sono obbligatori.", "error")
+                return redirect(url_for("manage_admin"))
+
+            try:
+                password_hash = generate_password_hash(password)
+
+                with db.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO admin_users (username, password_hash, appalto_id, created_at)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (username, password_hash, int(appalto_id), now_iso()),
+                    )
+                db.commit()
+                flash("Admin creato correttamente.", "success")
+            except psycopg.errors.UniqueViolation:
+                db.rollback()
+                flash("Username già esistente.", "error")
+            except Exception:
+                db.rollback()
+                flash("Errore durante la creazione dell'admin.", "error")
+
+            return redirect(url_for("manage_admin"))
+
+        if action == "change_password":
+            user_id = request.form.get("user_id", "").strip()
+            new_password = request.form.get("new_password", "").strip()
+
+            if not user_id or not new_password:
+                flash("Nuova password mancante.", "error")
+                return redirect(url_for("manage_admin"))
+
+            try:
+                password_hash = generate_password_hash(new_password)
+
+                with db.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE admin_users
+                        SET password_hash = %s
+                        WHERE id = %s
+                        """,
+                        (password_hash, int(user_id)),
+                    )
+                db.commit()
+                flash("Password aggiornata correttamente.", "success")
+            except Exception:
+                db.rollback()
+                flash("Errore durante l'aggiornamento della password.", "error")
+
+            return redirect(url_for("manage_admin"))
+
+        if action == "delete":
+            user_id = request.form.get("user_id", "").strip()
+
+            if not user_id:
+                flash("Admin non valido.", "error")
+                return redirect(url_for("manage_admin"))
+
+            try:
+                with db.cursor() as cur:
+                    cur.execute("DELETE FROM admin_users WHERE id = %s", (int(user_id),))
+                db.commit()
+                flash("Admin eliminato correttamente.", "success")
+            except Exception:
+                db.rollback()
+                flash("Errore durante l'eliminazione dell'admin.", "error")
+
+            return redirect(url_for("manage_admin"))
+
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT
+                au.id,
+                au.username,
+                au.appalto_id,
+                a.nome AS appalto_nome
+            FROM admin_users au
+            LEFT JOIN appalti a ON a.id = au.appalto_id
+            ORDER BY au.username
+        """)
+        admins = cur.fetchall()
+
+        cur.execute("""
+            SELECT id, nome
+            FROM appalti
+            ORDER BY nome
+        """)
+        appalti = cur.fetchall()
+
+    return render_template(
+        "manage_admin.html",
+        admins=admins,
+        appalti=appalti,
+        appalto_nome=current_appalto_nome(),
+    )
+
+
 @app.post("/drivers/create")
 @admin_required
 def create_driver():
@@ -568,7 +749,7 @@ def create_van():
         flash("Furgone creato correttamente.", "success")
     except psycopg.errors.UniqueViolation:
         db.rollback()
-        flash("La targa esiste già.", "error")
+        flash("Questa targa esiste già nello stesso appalto.", "error")
 
     return redirect(url_for("dashboard"))
 
@@ -589,6 +770,46 @@ def delete_van(van_id: int):
     except Exception:
         db.rollback()
         flash("Impossibile eliminare il furgone. Potrebbe avere pratiche collegate.", "error")
+    return redirect(url_for("dashboard"))
+
+
+@app.post("/vans/release/<int:van_id>")
+@admin_required
+def release_van(van_id: int):
+    db = get_db()
+    appalto_id = current_appalto_id()
+
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE assignments
+                SET status = 'Chiuso manualmente',
+                    return_at = COALESCE(return_at, %s),
+                    return_signature = COALESCE(return_signature, 'CHIUSURA ADMIN')
+                WHERE appalto_id = %s
+                  AND van_id = %s
+                  AND status IN ('Assegnato', 'Preso in carico')
+                """,
+                (now_iso(), appalto_id, van_id),
+            )
+
+            cur.execute(
+                """
+                UPDATE vans
+                SET status = 'Disponibile'
+                WHERE id = %s
+                  AND appalto_id = %s
+                """,
+                (van_id, appalto_id),
+            )
+
+        db.commit()
+        flash("Furgone reso disponibile correttamente.", "success")
+    except Exception:
+        db.rollback()
+        flash("Errore nello sblocco del furgone.", "error")
+
     return redirect(url_for("dashboard"))
 
 
@@ -619,6 +840,8 @@ def driver_select():
                     assignments=[],
                     available_vans=[],
                 )
+
+            release_stale_vans(driver["appalto_id"])
 
             if action == "select_van":
                 van_id = request.form.get("van_id")
@@ -782,7 +1005,7 @@ def driver_portal(token: str):
                         request.form.get("pickup_km") or None,
                         request.form.get("pickup_fuel", ""),
                         request.form.get("pickup_notes", ""),
-                        assignment["driver_name"],  # firma automatica fissa
+                        assignment["driver_name"],
                         1 if request.form.get("body_ok") else 0,
                         1 if request.form.get("tyres_ok") else 0,
                         1 if request.form.get("docs_ok") else 0,
@@ -806,14 +1029,7 @@ def driver_portal(token: str):
             return redirect(url_for("driver_portal", token=token))
 
         if action == "return":
-            return_fields = [
-                "return_front",
-                "return_rear",
-                "return_right",
-                "return_left",
-                "return_inside",
-            ]
-
+            # Salvataggio dati PRIMA delle foto
             with db.cursor() as cur:
                 cur.execute(
                     """
@@ -831,7 +1047,7 @@ def driver_portal(token: str):
                         request.form.get("return_km") or None,
                         request.form.get("return_fuel", ""),
                         request.form.get("return_notes", ""),
-                        assignment["driver_name"],  # firma automatica fissa
+                        assignment["driver_name"],
                         assignment["id"],
                     ),
                 )
@@ -844,10 +1060,35 @@ def driver_portal(token: str):
                 )
             db.commit()
 
-            for field_name in return_fields:
-                save_single_photo(request.files.get(field_name), assignment["id"], field_name)
+            # Upload foto DOPO, senza bloccare la chiusura
+            return_fields = [
+                "return_front",
+                "return_rear",
+                "return_right",
+                "return_left",
+                "return_inside",
+            ]
 
-            flash("Riconsegna registrata.", "success")
+            failed_photos = []
+
+            for field_name in return_fields:
+                try:
+                    save_single_photo(
+                        request.files.get(field_name),
+                        assignment["id"],
+                        field_name,
+                    )
+                except Exception:
+                    failed_photos.append(PHOTO_LABELS[field_name])
+
+            if failed_photos:
+                flash(
+                    "Riconsegna salvata, ma alcune foto non sono state caricate: " + ", ".join(failed_photos),
+                    "error",
+                )
+            else:
+                flash("Riconsegna registrata.", "success")
+
             return redirect(url_for("driver_portal", token=token))
 
     all_photos, photos_by_stage = get_assignment_photos(assignment["id"])
@@ -877,7 +1118,7 @@ def driver_portal(token: str):
         photos_by_stage=photos_by_stage,
         photo_labels=PHOTO_LABELS,
     )
-    
+
 
 # =========================
 # PDF
@@ -996,7 +1237,7 @@ def genera_pdf(assignment_id: int):
 
     write_line("REPORT GIORNALIERO PRESA IN CARICO MEZZO", size=16, step=28, bold=True)
     write_line(f"Appalto: {current_appalto_nome() or ''}", size=11, step=20)
-    write_line(f"Generato il: {datetime.now().strftime('%d/%m/%Y %H:%M')}", size=10, step=22)
+    write_line(f"Generato il: {now_dt().strftime('%d/%m/%Y %H:%M')}", size=10, step=22)
 
     write_line(f"Data pratica: {only_date(assignment['created_at'])}")
     write_line(f"Data e ora creazione: {format_date(assignment['created_at'])}")
@@ -1072,103 +1313,7 @@ def uploaded_file(filename: str):
     return redirect(filename)
 
 
-@app.route("/admin/manage", methods=["GET", "POST"])
-@admin_required
-def manage_admin():
-    # 🔒 controllo password extra
-    if not session.get("manage_access"):
-        return redirect(url_for("manage_login"))
-
-    db = get_db()
-
-    if request.method == "POST":
-        action = request.form.get("action", "").strip()
-
-        if action == "create":
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "").strip()
-            appalto_id = request.form.get("appalto_id", "").strip()
-
-            if not username or not password or not appalto_id:
-                flash("Campi obbligatori.", "error")
-                return redirect(url_for("manage_admin"))
-
-            password_hash = generate_password_hash(password)
-
-            with db.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO admin_users (username, password_hash, appalto_id, created_at)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (username, password_hash, int(appalto_id), now_iso()),
-                )
-            db.commit()
-
-            flash("Admin creato.", "success")
-            return redirect(url_for("manage_admin"))
-
-        if action == "change_password":
-            user_id = request.form.get("user_id")
-            new_password = request.form.get("new_password")
-
-            password_hash = generate_password_hash(new_password)
-
-            with db.cursor() as cur:
-                cur.execute(
-                    "UPDATE admin_users SET password_hash = %s WHERE id = %s",
-                    (password_hash, int(user_id)),
-                )
-            db.commit()
-
-            flash("Password aggiornata.", "success")
-            return redirect(url_for("manage_admin"))
-
-        if action == "delete":
-            user_id = request.form.get("user_id")
-
-            with db.cursor() as cur:
-                cur.execute("DELETE FROM admin_users WHERE id = %s", (int(user_id),))
-            db.commit()
-
-            flash("Admin eliminato.", "success")
-            return redirect(url_for("manage_admin"))
-
-    with db.cursor() as cur:
-        cur.execute("""
-            SELECT au.id, au.username, a.nome AS appalto_nome
-            FROM admin_users au
-            LEFT JOIN appalti a ON a.id = au.appalto_id
-            ORDER BY au.username
-        """)
-        admins = cur.fetchall()
-
-        cur.execute("SELECT id, nome FROM appalti ORDER BY nome")
-        appalti = cur.fetchall()
-
-    return render_template("manage_admin.html", admins=admins, appalti=appalti)
-
-
-@app.route("/admin/manage/login", methods=["GET", "POST"])
-@admin_required
-def manage_login():
-    if request.method == "POST":
-        password = request.form.get("password")
-
-        if password == os.environ.get("ADMIN_MANAGE_PASSWORD"):
-            session["manage_access"] = True
-            return redirect(url_for("manage_admin"))
-        else:
-            flash("Password errata", "error")
-
-    return render_template("manage_login.html")
-    
-
 init_db()
 
 if __name__ == "__main__":
-    app.run(debug=True)
-
-
-
-
+    app.run(debug=True) 
