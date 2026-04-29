@@ -59,6 +59,7 @@
 <input type="file" name="pickup_inside" accept="image/*" capture="environment">
 {% if photos_by_stage['pickup_inside'] %}
     <div><img src="{{ photos_by_stage['pickup_inside'].filename }}" width="140" style="border-radius:8px;"></div>
+{% endif %}
 
         <button type="submit" class="pickup-btn">Conferma presa in carico</button>
     </form>
@@ -110,6 +111,9 @@
 <input type="file" name="return_inside" accept="image/*" capture="environment">
 {% if photos_by_stage['return_inside'] %}
     <div><img src="{{ photos_by_stage['return_inside'].filename }}" width="140" style="border-radius:8px;"></div>
+{% endif %}
+
+       
 
        <button type="submit" class="return-btn">Conferma riconsegna</button>
     </form>
