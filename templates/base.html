@@ -1,54 +1,157 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <link rel="icon" href="{{ url_for('static', filename='logo.png') }}">
-
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.png') }}">
-
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Furgoni">
-
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <meta charset="UTF-8">
     <title>Gestione Furgoni</title>
-<link rel="icon" href="{{ url_for('static', filename='logo.png') }}">
-    
+
+    <link rel="icon" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Furgoni">
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f9;
             margin: 0;
-            padding: 20px;
+            padding: 16px;
+            font-family: Arial, sans-serif;
+            background: #eef2f7;
+            color: #0f172a;
+            font-size: 16px;
         }
 
-        h1, h2, h3 {
-            margin-top: 0;
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
         }
 
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+        h2 {
+            font-size: 22px;
+            margin-bottom: 14px;
+            color: #111827;
         }
 
-        .topbar a {
-            text-decoration: none;
-            padding: 8px 12px;
-            background: #333;
-            color: #fff;
-            border-radius: 6px;
+        h3 {
+            font-size: 18px;
+            margin-top: 22px;
+            margin-bottom: 12px;
         }
 
         .card {
-            background: #fff;
+            background: #ffffff;
+            border-radius: 18px;
             padding: 20px;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            border: 1px solid #e5e7eb;
+        }
+
+        .topbar {
+            background: #0f172a;
+            color: white;
+            padding: 18px;
+            border-radius: 18px;
             margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            color: white;
+        }
+
+        .topbar a {
+            background: white;
+            color: #0f172a;
+            padding: 10px 14px;
             border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .muted {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-bottom: 6px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 13px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 14px;
+            background: #2563eb;
+            color: white;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .pickup-btn {
+            background: #16a34a;
+        }
+
+        .pickup-btn:hover {
+            background: #15803d;
+        }
+
+        .return-btn {
+            background: #ea580c;
+        }
+
+        .return-btn:hover {
+            background: #c2410c;
+        }
+
+        .checkboxes label {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 8px;
         }
 
         .grid {
@@ -61,49 +164,26 @@
         }
 
         .stats {
-            font-size: 26px;
+            font-size: 34px;
             font-weight: bold;
             margin-top: 5px;
-        }
-
-        .muted {
-            color: #777;
-            font-size: 14px;
-        }
-
-        input, select, textarea {
-            padding: 8px;
-            margin: 5px 0;
-            width: 100%;
-            max-width: 300px;
-        }
-
-        button {
-            padding: 8px 12px;
-            border: none;
-            background: #007bff;
-            color: white;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #0056b3;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            background: white;
         }
 
-        th, td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+        th,
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
             text-align: left;
         }
 
         th {
-            background: #f0f0f0;
+            background: #f1f5f9;
         }
 
         img {
@@ -111,39 +191,71 @@
         }
 
         .flash {
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 16px;
+            border-radius: 14px;
+            font-weight: bold;
         }
 
         .flash.success {
-            background: #d4edda;
-            color: #155724;
+            background: #dcfce7;
+            color: #166534;
         }
 
         .flash.error {
-            background: #f8d7da;
-            color: #721c24;
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        a {
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 12px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .card {
+                padding: 16px;
+                border-radius: 16px;
+            }
+
+            h1 {
+                font-size: 25px;
+            }
+
+            h2 {
+                font-size: 21px;
+            }
+
+            button {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Messaggi flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="flash {{ category }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
 
-    <!-- Contenuto -->
-    {% block content %}
-    {% endblock %}
+{% block content %}
+{% endblock %}
 
 </body>
 </html>
