@@ -63,12 +63,10 @@ PHOTO_LABELS = {
     "pickup_rear": "Presa in carico - Posteriore",
     "pickup_right": "Presa in carico - Lato destro",
     "pickup_left": "Presa in carico - Lato sinistro",
-    "pickup_inside": "Presa in carico - Interno",
     "return_front": "Riconsegna - Anteriore",
     "return_rear": "Riconsegna - Posteriore",
     "return_right": "Riconsegna - Lato destro",
     "return_left": "Riconsegna - Lato sinistro",
-    "return_inside": "Riconsegna - Interno",
 }
 
 MAX_IMAGE_SIZE = (1600, 1600)
