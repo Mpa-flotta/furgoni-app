@@ -560,25 +560,8 @@ def logout():
 @admin_required
 def dashboard():
     data = fetch_dashboard_data()
-
-    selected_date = request.args.get("selected_date", "").strip()
-
-    all_dates = list(data["grouped_assignments"].keys())
-
-    if not selected_date and all_dates:
-        selected_date = all_dates[0]
-
-    data["selected_date"] = selected_date
-    data["all_dates"] = all_dates
-
-    if selected_date:
-        data["grouped_assignments"] = {
-            day: items
-            for day, items in data["grouped_assignments"].items()
-            if day == selected_date
-        }
-
     return render_template("dashboard.html", **data)
+
 
 @app.route("/admin/manage", methods=["GET", "POST"])
 @admin_required
