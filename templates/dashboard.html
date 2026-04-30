@@ -140,9 +140,15 @@
 
 <h2>📅 Registro giornaliero prese in carico</h2>
 
+<div class="card">
+    <label><strong>Seleziona giorno:</strong></label>
+    <input type="date" id="dateFilter" style="max-width:220px;">
+    <button type="button" onclick="resetDateFilter()">Mostra tutti</button>
+</div>
+
 {% if grouped_assignments %}
     {% for day, items in grouped_assignments.items() %}
-        <div class="card" style="margin-bottom: 30px;">
+        <div class="card day-card" data-day="{{ day }}" style="margin-bottom: 30px;">
             <h3>{{ day }}</h3>
             <p><strong>Furgoni usati nel giorno:</strong> {{ daily_counts[day] }}</p>
 
@@ -199,5 +205,34 @@
 {% else %}
     <p>Nessuna presa in carico registrata.</p>
 {% endif %}
+
+<script>
+document.getElementById("dateFilter").addEventListener("change", function () {
+    const selected = this.value;
+
+    if (!selected) {
+        resetDateFilter();
+        return;
+    }
+
+    const parts = selected.split("-");
+    const formatted = parts[2] + "/" + parts[1] + "/" + parts[0];
+
+    document.querySelectorAll(".day-card").forEach(function (card) {
+        if (card.dataset.day === formatted) {
+            card.style.display = "block";
+        } else {
+            card.style.display = "none";
+        }
+    });
+});
+
+function resetDateFilter() {
+    document.getElementById("dateFilter").value = "";
+    document.querySelectorAll(".day-card").forEach(function (card) {
+        card.style.display = "block";
+    });
+}
+</script>
 
 {% endblock %}
