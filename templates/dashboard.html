@@ -138,23 +138,7 @@
 
 <hr>
 
-<hr>
-
 <h2>📅 Registro giornaliero prese in carico</h2>
-
-{% if all_dates %}
-<form method="get" style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
-    <label><strong>Seleziona data:</strong></label>
-
-    <select name="selected_date" onchange="this.form.submit()" style="padding:8px;">
-        {% for day in all_dates %}
-            <option value="{{ day }}" {% if day == selected_date %}selected{% endif %}>
-                {{ day }}
-            </option>
-        {% endfor %}
-    </select>
-</form>
-{% endif %}
 
 {% if grouped_assignments %}
     {% for day, items in grouped_assignments.items() %}
