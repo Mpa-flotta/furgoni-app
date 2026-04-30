@@ -163,10 +163,27 @@
 
 
 {% if grouped_assignments %}
-    {% for day, items in grouped_assignments.items() %}
+<form method="get" style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+    
+    <label><strong>Seleziona data:</strong></label>
+
+    <select name="selected_date" onchange="this.form.submit()" style="padding:8px;">
+        {% for day in grouped_assignments.keys() %}
+            <option value="{{ day }}" {% if day == selected_date %}selected{% endif %}>
+                {{ day }}
+            </option>
+        {% endfor %}
+    </select>
+
+</form>
+
+{% for day, items in grouped_assignments.items() %}
+    {% if day == selected_date %}
         <div class="card" style="margin-bottom: 30px;">
             <h3>{{ day }}</h3>
             <p><strong>Furgoni usati nel giorno:</strong> {{ daily_counts[day] }}</p>
+                {% endif %}
+{% endfor %}
 
             <div style="overflow-x:auto;">
                 <table>
