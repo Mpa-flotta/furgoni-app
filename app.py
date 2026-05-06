@@ -957,25 +957,36 @@ def driver_portal(token: str):
     if request.method == "POST":
         action = request.form.get("action")
 
+        # =========================
+        # PRESA IN CARICO
+        # =========================
         if action == "pickup":
+
             required_pickup = [
                 "pickup_front",
                 "pickup_rear",
-                "pickup_right",
-                "pickup_left",
                 "pickup_inside",
             ]
 
             missing_files = []
+
             for field_name in required_pickup:
                 already_present = photos_by_stage.get(field_name) is not None
                 new_file = request.files.get(field_name)
+
                 if not already_present and (not new_file or not new_file.filename):
                     missing_files.append(PHOTO_LABELS[field_name])
 
             if missing_files:
-                flash("Mancano foto obbligatorie: " + ", ".join(missing_files), "error")
-                all_photos, photos_by_stage = get_assignment_photos(assignment["id"])
+                flash(
+                    "Mancano foto obbligatorie: " + ", ".join(missing_files),
+                    "error",
+                )
+
+                all_photos, photos_by_stage = get_assignment_photos(
+                    assignment["id"]
+                )
+
                 return render_template(
                     "driver.html",
                     assignment=assignment,
@@ -984,6 +995,7 @@ def driver_portal(token: str):
                     photo_labels=PHOTO_LABELS,
                 )
 
+            # SALVA DATI PRIMA
             with db.cursor() as cur:
                 cur.execute(
                     """
@@ -1013,23 +1025,61 @@ def driver_portal(token: str):
                         assignment["id"],
                     ),
                 )
+
                 cur.execute(
-                    "UPDATE vans SET status = 'In uso', current_km = %s WHERE id = %s",
+                    """
+                    UPDATE vans
+                    SET status = 'In uso',
+                        current_km = %s
+                    WHERE id = %s
+                    """,
                     (
-                        request.form.get("pickup_km") or assignment["current_km"],
+                        request.form.get("pickup_km")
+                        or assignment["current_km"],
                         assignment["van_id"],
                     ),
                 )
+
             db.commit()
 
-            for field_name in required_pickup:
-                save_single_photo(request.files.get(field_name), assignment["id"], field_name)
+            # FOTO DOPO (NON BLOCCANTI)
+            pickup_fields = [
+                "pickup_front",
+                "pickup_rear",
+                "pickup_right",
+                "pickup_left",
+                "pickup_inside",
+            ]
 
-            flash("Presa in carico registrata.", "success")
+            failed_photos = []
+
+            for field_name in pickup_fields:
+                try:
+                    save_single_photo(
+                        request.files.get(field_name),
+                        assignment["id"],
+                        field_name,
+                    )
+                except Exception:
+                    failed_photos.append(PHOTO_LABELS[field_name])
+
+            if failed_photos:
+                flash(
+                    "Presa in carico salvata, ma alcune foto non sono state caricate: "
+                    + ", ".join(failed_photos),
+                    "error",
+                )
+            else:
+                flash("Presa in carico registrata.", "success")
+
             return redirect(url_for("driver_portal", token=token))
 
+        # =========================
+        # RICONSEGNA
+        # =========================
         if action == "return":
-            # Salvataggio dati PRIMA delle foto
+
+            # SALVA DATI PRIMA
             with db.cursor() as cur:
                 cur.execute(
                     """
@@ -1051,16 +1101,24 @@ def driver_portal(token: str):
                         assignment["id"],
                     ),
                 )
+
                 cur.execute(
-                    "UPDATE vans SET status = 'Disponibile', current_km = %s WHERE id = %s",
+                    """
+                    UPDATE vans
+                    SET status = 'Disponibile',
+                        current_km = %s
+                    WHERE id = %s
+                    """,
                     (
-                        request.form.get("return_km") or assignment["current_km"],
+                        request.form.get("return_km")
+                        or assignment["current_km"],
                         assignment["van_id"],
                     ),
                 )
+
             db.commit()
 
-            # Upload foto DOPO, senza bloccare la chiusura
+            # FOTO DOPO (FACOLTATIVE)
             return_fields = [
                 "return_front",
                 "return_rear",
@@ -1083,7 +1141,8 @@ def driver_portal(token: str):
 
             if failed_photos:
                 flash(
-                    "Riconsegna salvata, ma alcune foto non sono state caricate: " + ", ".join(failed_photos),
+                    "Riconsegna salvata, ma alcune foto non sono state caricate: "
+                    + ", ".join(failed_photos),
                     "error",
                 )
             else:
@@ -1118,7 +1177,6 @@ def driver_portal(token: str):
         photos_by_stage=photos_by_stage,
         photo_labels=PHOTO_LABELS,
     )
-
 
 # =========================
 # PDF
