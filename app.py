@@ -1374,5 +1374,16 @@ def uploaded_file(filename: str):
 init_db()
 
 if __name__ == "__main__":
+    print("APP AVVIATA")
+
+    from flask import Flask
+
+    test_app = Flask(__name__)
+
+    @test_app.route("/")
+    def home():
+        return "ONLINE"
+
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+
+    test_app.run(host="0.0.0.0", port=port)
