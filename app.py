@@ -1182,6 +1182,7 @@ def driver_portal(token: str):
 # PDF
 # =========================
 
+
 @app.route("/pdf/<int:assignment_id>")
 @admin_required
 def genera_pdf(assignment_id: int):
