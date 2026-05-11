@@ -1365,6 +1365,7 @@ def genera_pdf(assignment_id: int):
         mimetype="application/pdf"
     )
 
+
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename: str):
     return redirect(filename)
@@ -1373,5 +1374,4 @@ def uploaded_file(filename: str):
 init_db()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
-    
+    app.run(debug=True) 
