@@ -1182,7 +1182,6 @@ def driver_portal(token: str):
 # PDF
 # =========================
 
-
 @app.route("/pdf/<int:assignment_id>")
 @admin_required
 def genera_pdf(assignment_id: int):
@@ -1374,4 +1373,5 @@ def uploaded_file(filename: str):
 init_db()
 
 if __name__ == "__main__":
-    app.run(debug=True) 
+    app.run(host="0.0.0.0", port=10000)
+    
