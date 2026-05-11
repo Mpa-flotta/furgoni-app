@@ -1223,43 +1223,42 @@ def genera_pdf(assignment_id: int):
         return redirect(url_for("dashboard"))
 
     photos_by_stage = {key: None for key in PHOTO_LABELS.keys()}
+
     for photo in photos:
         photos_by_stage[photo["stage"]] = photo
 
     buffer = io.BytesIO()
+
     pdf = canvas.Canvas(buffer, pagesize=A4)
-    _, page_height = A4
+
+    page_width, page_height = A4
+
     margin = 40
-    y = page_height - margin
 
-    def write_line(text: str, size: int = 11, step: int = 18, bold: bool = False):
-        nonlocal y
-        pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+    def draw_title(text, y):
+        pdf.setFont("Helvetica-Bold", 20)
         pdf.drawString(margin, y, text)
-        y -= step
 
-    def new_page():
-        nonlocal y
-        pdf.showPage()
-        y = page_height - margin
+    def draw_section(title, y):
+        pdf.setFont("Helvetica-Bold", 15)
+        pdf.drawString(margin, y, title)
 
-    def safe_text(value):
-        return "" if value is None else str(value)
+    def draw_text(label, value, y):
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(margin, y, f"{label}:")
 
-    def draw_photo_block(stage_key: str):
-        nonlocal y
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(margin + 170, y, str(value or "-"))
 
-        label = PHOTO_LABELS[stage_key]
-        photo = photos_by_stage.get(stage_key)
+    def draw_photo(photo_key, x, y, width=220, height=150):
+        photo = photos_by_stage.get(photo_key)
 
-        if y < 220:
-            new_page()
-
-        write_line(label, size=11, step=16, bold=True)
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(x, y + height + 10, PHOTO_LABELS[photo_key])
 
         if not photo:
-            write_line("Foto non presente.")
-            y -= 8
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(x, y + height - 20, "Foto non presente")
             return
 
         try:
@@ -1267,102 +1266,177 @@ def genera_pdf(assignment_id: int):
                 image_bytes = response.read()
 
             img = ImageReader(io.BytesIO(image_bytes))
-            img_width, img_height = img.getSize()
 
-            max_width = 160
-            max_height = 110
-            scale = min(max_width / img_width, max_height / img_height)
-            draw_width = img_width * scale
-            draw_height = img_height * scale
-
-            img_y = y - draw_height
             pdf.drawImage(
                 img,
-                margin,
-                img_y,
-                width=draw_width,
-                height=draw_height,
+                x,
+                y,
+                width=width,
+                height=height,
                 preserveAspectRatio=True,
                 mask="auto",
             )
-            y = img_y - 18
 
-        except Exception as e:
-            write_line(f"Immagine non caricabile: {str(e)}")
-            y -= 8
+        except Exception:
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(x, y + height - 20, "Errore caricamento immagine")
 
-    pdf.setTitle(f"report_{assignment_id}.pdf")
+    # =========================================
+    # PAGINA 1 - RIEPILOGO
+    # =========================================
 
-    write_line("REPORT GIORNALIERO PRESA IN CARICO MEZZO", size=16, step=28, bold=True)
-    write_line(f"Appalto: {current_appalto_nome() or ''}", size=11, step=20)
-    write_line(f"Generato il: {now_dt().strftime('%d/%m/%Y %H:%M')}", size=10, step=22)
+    y = page_height - 50
 
-    write_line(f"Data pratica: {only_date(assignment['created_at'])}")
-    write_line(f"Data e ora creazione: {format_date(assignment['created_at'])}")
-    write_line(f"Autista: {assignment['driver_name']}")
-    write_line(f"Telefono autista: {safe_text(assignment.get('driver_phone'))}")
-    write_line(f"Email autista: {safe_text(assignment.get('driver_email'))}")
-    write_line(f"Mezzo: {assignment['plate']} - {assignment['model']}")
-    y -= 8
+    draw_title("REPORT PRESA IN CARICO FURGONE", y)
 
-    write_line("PRESA IN CARICO", size=13, step=20, bold=True)
-    write_line(f"Data e ora presa in carico: {format_date(assignment.get('pickup_at'))}")
-    write_line(f"KM presa in carico: {safe_text(assignment.get('pickup_km'))}")
-    write_line(f"Carburante presa in carico: {safe_text(assignment.get('pickup_fuel'))}")
-    write_line(f"Firma presa in carico: {safe_text(assignment.get('pickup_signature'))}")
-    write_line(f"Carrozzeria OK: {'Si' if assignment.get('body_ok') else 'No'}")
-    write_line(f"Gomme OK: {'Si' if assignment.get('tyres_ok') else 'No'}")
-    write_line(f"Documenti presenti: {'Si' if assignment.get('docs_ok') else 'No'}")
-    write_line(f"Luci OK: {'Si' if assignment.get('lights_ok') else 'No'}")
+    y -= 40
 
-    pickup_notes = assignment.get("pickup_notes") or ""
-    write_line("Note presa in carico:")
-    if pickup_notes:
-        for line in pickup_notes.splitlines():
-            write_line(f"- {line}")
-    else:
-        write_line("- Nessuna")
+    draw_text("Appalto", current_appalto_nome(), y)
+    y -= 25
 
-    y -= 6
-    draw_photo_block("pickup_front")
-    draw_photo_block("pickup_rear")
-    draw_photo_block("pickup_right")
-    draw_photo_block("pickup_left")
-    draw_photo_block("pickup_inside")
+    draw_text("Generato il", now_dt().strftime("%d/%m/%Y %H:%M"), y)
+    y -= 25
 
-    if y < 220:
-        new_page()
+    draw_text("Data pratica", only_date(assignment["created_at"]), y)
+    y -= 25
 
-    write_line("RICONSEGNA", size=13, step=20, bold=True)
-    write_line(f"Data e ora riconsegna: {format_date(assignment.get('return_at'))}")
-    write_line(f"KM riconsegna: {safe_text(assignment.get('return_km'))}")
-    write_line(f"Carburante riconsegna: {safe_text(assignment.get('return_fuel'))}")
-    write_line(f"Firma riconsegna: {safe_text(assignment.get('return_signature'))}")
+    draw_text("Autista", assignment["driver_name"], y)
+    y -= 25
 
-    return_notes = assignment.get("return_notes") or ""
-    write_line("Note riconsegna:")
-    if return_notes:
-        for line in return_notes.splitlines():
-            write_line(f"- {line}")
-    else:
-        write_line("- Nessuna")
+    draw_text("Telefono", assignment.get("driver_phone") or "-", y)
+    y -= 25
 
-    y -= 6
-    draw_photo_block("return_front")
-    draw_photo_block("return_rear")
-    draw_photo_block("return_right")
-    draw_photo_block("return_left")
-    draw_photo_block("return_inside")
+    draw_text("Email", assignment.get("driver_email") or "-", y)
+    y -= 25
+
+    draw_text(
+        "Mezzo",
+        f"{assignment['plate']} - {assignment['model']}",
+        y,
+    )
+
+    y -= 45
+
+    draw_section("PRESA IN CARICO", y)
+
+    y -= 30
+
+    draw_text("Data e ora", format_date(assignment.get("pickup_at")), y)
+    y -= 25
+
+    draw_text("KM", assignment.get("pickup_km"), y)
+    y -= 25
+
+    draw_text("Carburante", assignment.get("pickup_fuel"), y)
+    y -= 25
+
+    draw_text("Firma", assignment.get("pickup_signature"), y)
+    y -= 25
+
+    draw_text(
+        "Check mezzo",
+        f"Carrozzeria: {'OK' if assignment.get('body_ok') else 'NO'} | "
+        f"Gomme: {'OK' if assignment.get('tyres_ok') else 'NO'} | "
+        f"Documenti: {'OK' if assignment.get('docs_ok') else 'NO'} | "
+        f"Luci: {'OK' if assignment.get('lights_ok') else 'NO'}",
+        y,
+    )
+
+    y -= 40
+
+    draw_section("RICONSEGNA", y)
+
+    y -= 30
+
+    draw_text("Data e ora", format_date(assignment.get("return_at")), y)
+    y -= 25
+
+    draw_text("KM", assignment.get("return_km"), y)
+    y -= 25
+
+    draw_text("Carburante", assignment.get("return_fuel"), y)
+    y -= 25
+
+    draw_text("Firma", assignment.get("return_signature"), y)
+
+    y -= 40
+
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(margin, y, "Note presa in carico:")
+
+    y -= 20
+
+    pdf.setFont("Helvetica", 11)
+
+    pickup_notes = assignment.get("pickup_notes") or "Nessuna"
+
+    for line in pickup_notes.splitlines():
+        pdf.drawString(margin + 15, y, f"- {line}")
+        y -= 18
+
+    y -= 20
+
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(margin, y, "Note riconsegna:")
+
+    y -= 20
+
+    pdf.setFont("Helvetica", 11)
+
+    return_notes = assignment.get("return_notes") or "Nessuna"
+
+    for line in return_notes.splitlines():
+        pdf.drawString(margin + 15, y, f"- {line}")
+        y -= 18
+
+    # =========================================
+    # PAGINA 2 - FOTO PRESA IN CARICO
+    # =========================================
+
+    pdf.showPage()
+
+    draw_title("FOTO PRESA IN CARICO", page_height - 50)
+
+    draw_photo("pickup_front", 40, 560)
+    draw_photo("pickup_rear", 300, 560)
+
+    draw_photo("pickup_right", 40, 340)
+    draw_photo("pickup_left", 300, 340)
+
+    draw_photo("pickup_inside", 170, 120)
+
+    # =========================================
+    # PAGINA 3 - FOTO RICONSEGNA
+    # =========================================
+
+    pdf.showPage()
+
+    draw_title("FOTO RICONSEGNA", page_height - 50)
+
+    draw_photo("return_front", 40, 560)
+    draw_photo("return_rear", 300, 560)
+
+    draw_photo("return_right", 40, 340)
+    draw_photo("return_left", 300, 340)
+
+    draw_photo("return_inside", 170, 120)
 
     pdf.save()
+
     buffer.seek(0)
 
-    filename = f"report_{assignment['driver_name'].replace(' ', '_')}_{assignment['plate']}_{assignment_id}.pdf"
+    filename = (
+        f"report_"
+        f"{assignment['driver_name'].replace(' ', '_')}_"
+        f"{assignment['plate']}_"
+        f"{assignment_id}.pdf"
+    )
+
     return send_file(
         buffer,
         as_attachment=True,
         download_name=filename,
-        mimetype="application/pdf"
+        mimetype="application/pdf",
     )
 
 
