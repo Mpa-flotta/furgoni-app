@@ -587,18 +587,33 @@ def logout():
 @app.route("/dashboard")
 @admin_required
 def dashboard():
-
     data = fetch_dashboard_data()
 
     sort_mode = request.args.get("sort", "date")
+    filter_date_raw = request.args.get("filter_date", "").strip()
 
     if sort_mode == "alpha":
-        data["assignments"] = sorted(
-            data["assignments"],
-            key=lambda x: x["driver_name"].split()[-1].lower()
-        )
+        for day in data["grouped_assignments"]:
+            data["grouped_assignments"][day] = sorted(
+                data["grouped_assignments"][day],
+                key=lambda x: x["driver_name"].split()[-1].lower()
+            )
+
+    if filter_date_raw:
+        try:
+            dt = datetime.strptime(filter_date_raw, "%Y-%m-%d")
+            filter_date = dt.strftime("%d/%m/%Y")
+
+            data["grouped_assignments"] = {
+                day: items
+                for day, items in data["grouped_assignments"].items()
+                if day == filter_date
+            }
+        except ValueError:
+            pass
 
     data["sort_mode"] = sort_mode
+    data["filter_date_raw"] = filter_date_raw
 
     return render_template("dashboard.html", **data)
 
