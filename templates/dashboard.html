@@ -140,24 +140,25 @@
 
 <h2>📅 Registro giornaliero prese in carico</h2>
 
-<form method="get" style="margin-bottom:20px;">
-    
+<form method="get" class="card" style="margin-bottom:20px;">
     <label><strong>Ordina per:</strong></label>
-
-    <select name="sort" onchange="this.form.submit()">
-
-        <option value="date"
-            {% if sort_mode == 'date' %}selected{% endif %}>
+    <select name="sort">
+        <option value="date" {% if sort_mode == 'date' %}selected{% endif %}>
             Presa in carico
         </option>
-
-        <option value="alpha"
-            {% if sort_mode == 'alpha' %}selected{% endif %}>
+        <option value="alpha" {% if sort_mode == 'alpha' %}selected{% endif %}>
             Cognome A-Z
         </option>
-
     </select>
 
+    <label><strong>Seleziona giorno:</strong></label>
+    <input type="date" name="filter_date" value="{{ filter_date_raw or '' }}">
+
+    <button type="submit">Applica</button>
+
+    <a href="{{ url_for('dashboard') }}" style="display:block; margin-top:15px;">
+        Mostra tutti
+    </a>
 </form>
 
 <div class="card">
@@ -226,33 +227,5 @@
     <p>Nessuna presa in carico registrata.</p>
 {% endif %}
 
-<script>
-document.getElementById("dateFilter").addEventListener("change", function () {
-    const selected = this.value;
-
-    if (!selected) {
-        resetDateFilter();
-        return;
-    }
-
-    const parts = selected.split("-");
-    const formatted = parts[2] + "/" + parts[1] + "/" + parts[0];
-
-    document.querySelectorAll(".day-card").forEach(function (card) {
-        if (card.dataset.day === formatted) {
-            card.style.display = "block";
-        } else {
-            card.style.display = "none";
-        }
-    });
-});
-
-function resetDateFilter() {
-    document.getElementById("dateFilter").value = "";
-    document.querySelectorAll(".day-card").forEach(function (card) {
-        card.style.display = "block";
-    });
-}
-</script>
 
 {% endblock %}
