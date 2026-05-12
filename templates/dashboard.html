@@ -140,6 +140,26 @@
 
 <h2>📅 Registro giornaliero prese in carico</h2>
 
+<form method="get" style="margin-bottom:20px;">
+    
+    <label><strong>Ordina per:</strong></label>
+
+    <select name="sort" onchange="this.form.submit()">
+
+        <option value="date"
+            {% if sort_mode == 'date' %}selected{% endif %}>
+            Presa in carico
+        </option>
+
+        <option value="alpha"
+            {% if sort_mode == 'alpha' %}selected{% endif %}>
+            Cognome A-Z
+        </option>
+
+    </select>
+
+</form>
+
 <div class="card">
     <label><strong>Seleziona giorno:</strong></label>
     <input type="date" id="dateFilter" style="max-width:220px;">
