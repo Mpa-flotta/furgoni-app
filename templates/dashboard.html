@@ -161,11 +161,6 @@
     </a>
 </form>
 
-<div class="card">
-    <label><strong>Seleziona giorno:</strong></label>
-    <input type="date" id="dateFilter" style="max-width:220px;">
-    <button type="button" onclick="resetDateFilter()">Mostra tutti</button>
-</div>
 
 {% if grouped_assignments %}
     {% for day, items in grouped_assignments.items() %}
