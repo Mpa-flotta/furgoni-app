@@ -587,7 +587,19 @@ def logout():
 @app.route("/dashboard")
 @admin_required
 def dashboard():
+
     data = fetch_dashboard_data()
+
+    sort_mode = request.args.get("sort", "date")
+
+    if sort_mode == "alpha":
+        data["assignments"] = sorted(
+            data["assignments"],
+            key=lambda x: x["driver_name"].split()[-1].lower()
+        )
+
+    data["sort_mode"] = sort_mode
+
     return render_template("dashboard.html", **data)
 
 
