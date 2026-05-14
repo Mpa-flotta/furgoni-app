@@ -12,6 +12,23 @@
     </form>
 </div>
 
+<div class="card">
+    <h2>Cambia PIN autista</h2>
+
+    <form method="post" action="{{ url_for('driver_change_pin') }}">
+        <label>PIN attuale</label>
+        <input type="text" name="current_pin" required>
+
+        <label>Nuovo PIN</label>
+        <input type="text" name="new_pin" minlength="4" required>
+
+        <label>Conferma nuovo PIN</label>
+        <input type="text" name="confirm_pin" minlength="4" required>
+
+        <button type="submit">Aggiorna PIN</button>
+    </form>
+</div>
+
 {% if driver %}
 <div class="card">
     <h2>Benvenuto {{ driver.full_name }}</h2>
