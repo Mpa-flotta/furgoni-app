@@ -1030,6 +1030,79 @@ def driver_select():
     )
 
 
+@app.post("/driver/change-pin")
+def driver_change_pin():
+    current_pin = request.form.get("current_pin", "").strip()
+    new_pin = request.form.get("new_pin", "").strip()
+    confirm_pin = request.form.get("confirm_pin", "").strip()
+
+    if not current_pin or not new_pin or not confirm_pin:
+        flash("Compila tutti i campi per cambiare PIN.", "error")
+        return redirect(url_for("driver_select"))
+
+    if len(new_pin) < 4:
+        flash("Il nuovo PIN deve avere almeno 4 caratteri.", "error")
+        return redirect(url_for("driver_select"))
+
+    if new_pin != confirm_pin:
+        flash("Il nuovo PIN e la conferma non coincidono.", "error")
+        return redirect(url_for("driver_select"))
+
+    db = get_db()
+
+    with db.cursor() as cur:
+
+        cur.execute(
+            """
+            SELECT *
+            FROM drivers
+            WHERE pin = %s
+            """,
+            (current_pin,),
+        )
+
+        driver = cur.fetchone()
+
+        if not driver:
+            flash("PIN attuale non valido.", "error")
+            return redirect(url_for("driver_select"))
+
+        cur.execute(
+            """
+            SELECT id
+            FROM drivers
+            WHERE pin = %s
+              AND appalto_id = %s
+              AND id != %s
+            """,
+            (new_pin, driver["appalto_id"], driver["id"]),
+        )
+
+        existing = cur.fetchone()
+
+        if existing:
+            flash(
+                "Questo PIN è già usato da un altro autista.",
+                "error",
+            )
+            return redirect(url_for("driver_select"))
+
+        cur.execute(
+            """
+            UPDATE drivers
+            SET pin = %s
+            WHERE id = %s
+            """,
+            (new_pin, driver["id"]),
+        )
+
+    db.commit()
+
+    flash("PIN aggiornato correttamente.", "success")
+
+    return redirect(url_for("driver_select"))
+
+
 @app.route("/driver/<token>", methods=["GET", "POST"])
 def driver_portal(token: str):
     db = get_db()
