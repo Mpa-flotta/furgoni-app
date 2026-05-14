@@ -12,6 +12,8 @@
     </form>
 </div>
 
+
+{% if driver %}
 <div class="card">
     <h2>Cambia PIN autista</h2>
 
@@ -29,7 +31,6 @@
     </form>
 </div>
 
-{% if driver %}
 <div class="card">
     <h2>Benvenuto {{ driver.full_name }}</h2>
 
