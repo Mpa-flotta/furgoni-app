@@ -1586,6 +1586,21 @@ def genera_pdf(assignment_id: int):
     draw_photo_block("return_right")
     draw_photo_block("return_left")
     draw_photo_block("return_inside")
+    
+    y -= 20
+
+write_line(
+    "FAR RIFERIMENTO A QUANTO DISCIPLINATO DALL'ART. 32 DEL CCNL",
+    size=10,
+    step=16,
+    bold=True,
+)
+
+write_line(
+    "IN VIGORE DAL 01/01/2025 OLTRE CHE AL MANUALE DELL'AUTISTA.",
+    size=10,
+    step=20,
+)
 
     pdf.save()
 
