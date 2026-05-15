@@ -1068,15 +1068,14 @@ def driver_change_pin():
             return redirect(url_for("driver_select"))
 
         cur.execute(
-            """
-            SELECT id
-            FROM drivers
-            WHERE pin = %s
-              AND appalto_id = %s
-              AND id != %s
-            """,
-            (new_pin, driver["appalto_id"], driver["id"]),
-        )
+        """
+       SELECT id
+       FROM drivers
+       WHERE pin = %s
+       AND id != %s
+       """,
+       (new_pin, driver["id"]),
+       )
 
         existing = cur.fetchone()
 
