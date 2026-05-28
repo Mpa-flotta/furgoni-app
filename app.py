@@ -486,6 +486,29 @@ def fetch_dashboard_data() -> dict[str, Any]:
         )
         assignments = cur.fetchall()
 
+        assignment_ids = [a["id"] for a in assignments]
+
+        photos_by_assignment = {}
+
+        if assignment_ids:
+            cur.execute(
+                """
+                SELECT *
+                FROM photos
+                WHERE assignment_id = ANY(%s)
+                ORDER BY assignment_id, id ASC
+                """,
+                (assignment_ids,),
+            )
+
+            all_photos = cur.fetchall()
+
+            for photo in all_photos:
+                photos_by_assignment.setdefault(
+                    photo["assignment_id"],
+                    []
+                ).append(photo)
+
         cur.execute(
             """
             SELECT COUNT(*) AS count
@@ -528,8 +551,10 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "active_count": active_count,
         "completed_count": completed_count,
         "appalto_nome": current_appalto_nome(),
+        "photos_by_assignment": photos_by_assignment,
+        "photo_labels": PHOTO_LABELS,
     }
-
+    
 
 # =========================
 # AUTH
