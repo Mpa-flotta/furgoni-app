@@ -23,6 +23,7 @@ from flask import (
     render_template,
     request,
     send_file,
+    send_from_directory,
     session,
     url_for,
 )
@@ -187,7 +188,7 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
     with open(filepath, "wb") as f:
         f.write(optimized_file.read())
 
-    image_url = url_for("uploaded_file", filename=filename, _external=True)
+    image_url = f"/uploads/{filename}"
 
     with db.cursor() as cur:
         cur.execute(
@@ -1751,10 +1752,12 @@ def genera_pdf(assignment_id: int):
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename: str):
-    return send_file(
-        os.path.join(UPLOAD_FOLDER, filename),
-        mimetype="image/jpeg"
-    )
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    if not os.path.exists(filepath):
+        return "Foto non trovata", 404
+
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 
 # =========================
