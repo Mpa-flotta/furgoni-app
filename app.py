@@ -44,6 +44,8 @@ if not DATABASE_URL:
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "cambia-questa-secret-key")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 cloudinary.config(secure=True)
 
@@ -173,22 +175,19 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
         return
 
     db = get_db()
+
     safe_name = secure_filename(file_obj.filename)
     base_name = Path(safe_name).stem or "foto"
 
     optimized_file = optimize_image(file_obj)
 
-    result = cloudinary.uploader.upload(
-        optimized_file,
-        folder="furgoni_app",
-        public_id=f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{base_name}",
-        resource_type="image",
-        format="jpg",
-    )
+    filename = f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{base_name}.jpg"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-    image_url = result.get("secure_url")
-    if not image_url:
-        return
+    with open(filepath, "wb") as f:
+        f.write(optimized_file.read())
+
+    image_url = url_for("uploaded_file", filename=filename, _external=True)
 
     with db.cursor() as cur:
         cur.execute(
@@ -198,8 +197,9 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
             """,
             (assignment_id, stage, image_url, now_iso()),
         )
-    db.commit()
 
+    db.commit()
+    
 
 def get_assignment_photos(assignment_id: int):
     db = get_db()
@@ -1751,7 +1751,10 @@ def genera_pdf(assignment_id: int):
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename: str):
-    return redirect(filename)
+    return send_file(
+        os.path.join(UPLOAD_FOLDER, filename),
+        mimetype="image/jpeg"
+    )
 
 
 # =========================
