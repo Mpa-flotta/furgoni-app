@@ -195,40 +195,17 @@
                                 <td>
     {% set pratica_photos = photos_by_assignment.get(a.id, []) %}
 
-    {% if pratica_photos %}
-        <a href="{{ pratica_photos[0].filename }}" target="_blank">
+    <td>
+    {% if a.first_photo %}
+        <a href="{{ a.first_photo }}" target="_blank">
             <img
-                src="{{ pratica_photos[0].filename }}"
+                src="{{ a.first_photo }}"
                 alt="foto"
                 width="80"
                 style="border-radius:8px;"
             >
         </a>
-
-        <div>{{ pratica_photos|length }} foto</div>
-
-        <details style="margin-top:8px;">
-            <summary style="cursor:pointer; font-weight:bold;">
-                Vedi tutte le foto
-            </summary>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-                {% for photo in pratica_photos %}
-                    <div style="width:120px;">
-                        <a href="{{ photo.filename }}" target="_blank">
-                            <img
-                                src="{{ photo.filename }}"
-                                width="110"
-                                style="border-radius:8px;"
-                            >
-                        </a>
-                        <div style="font-size:11px;">
-                            {{ photo_labels.get(photo.stage, photo.stage) if photo_labels is defined else photo.stage }}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        </details>
+        <div>{{ a.photo_count }} foto</div>
     {% else %}
         Nessuna
     {% endif %}
