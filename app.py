@@ -9,6 +9,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
+from supabase import create_client
 
 import cloudinary
 import cloudinary.uploader
@@ -45,8 +46,16 @@ if not DATABASE_URL:
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "cambia-questa-secret-key")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "furgoni-foto")
+
+supabase = create_client(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_KEY
+)
+
 
 cloudinary.config(secure=True)
 
@@ -172,6 +181,7 @@ def optimize_image(file_obj) -> io.BytesIO:
 
 
 def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
+
     if not file_obj or not file_obj.filename:
         return
 
@@ -182,21 +192,46 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
 
     optimized_file = optimize_image(file_obj)
 
-    filename = f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{base_name}.jpg"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    filename = (
+        f"{assignment_id}_"
+        f"{stage}_"
+        f"{secrets.token_hex(4)}_"
+        f"{base_name}.jpg"
+    )
 
-    with open(filepath, "wb") as f:
-        f.write(optimized_file.read())
+    file_bytes = optimized_file.read()
 
-    image_url = f"/uploads/{filename}"
+    supabase.storage.from_(SUPABASE_BUCKET).upload(
+        path=filename,
+        file=file_bytes,
+        file_options={
+            "content-type": "image/jpeg"
+        }
+    )
+
+    image_url = (
+        f"{SUPABASE_URL}/storage/v1/object/public/"
+        f"{SUPABASE_BUCKET}/{filename}"
+    )
 
     with db.cursor() as cur:
+
         cur.execute(
             """
-            INSERT INTO photos (assignment_id, stage, filename, uploaded_at)
+            INSERT INTO photos (
+                assignment_id,
+                stage,
+                filename,
+                uploaded_at
+            )
             VALUES (%s, %s, %s, %s)
             """,
-            (assignment_id, stage, image_url, now_iso()),
+            (
+                assignment_id,
+                stage,
+                image_url,
+                now_iso(),
+            ),
         )
 
     db.commit()
