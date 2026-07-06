@@ -11,6 +11,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 from supabase import create_client
 
+import boto3
 import cloudinary
 import cloudinary.uploader
 import psycopg
@@ -181,7 +182,6 @@ def optimize_image(file_obj) -> io.BytesIO:
 
 
 def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
-
     if not file_obj or not file_obj.filename:
         return
 
@@ -191,50 +191,41 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
     base_name = Path(safe_name).stem or "foto"
 
     optimized_file = optimize_image(file_obj)
-
-    filename = (
-        f"{assignment_id}_"
-        f"{stage}_"
-        f"{secrets.token_hex(4)}_"
-        f"{base_name}.jpg"
-    )
-
     file_bytes = optimized_file.read()
 
-    supabase.storage.from_(SUPABASE_BUCKET).upload(
-        path=filename,
-        file=file_bytes,
-        file_options={
-            "content-type": "image/jpeg"
-        }
+    r2_bucket = os.environ.get("R2_BUCKET")
+    r2_endpoint = os.environ.get("R2_ENDPOINT")
+    r2_access_key = os.environ.get("R2_ACCESS_KEY_ID")
+    r2_secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=r2_endpoint,
+        aws_access_key_id=r2_access_key,
+        aws_secret_access_key=r2_secret_key,
     )
 
-    image_url = (
-        f"{SUPABASE_URL}/storage/v1/object/public/"
-        f"{SUPABASE_BUCKET}/{filename}"
+    filename = f"{assignment_id}_{stage}_{secrets.token_hex(4)}_{base_name}.jpg"
+
+    s3_client.put_object(
+        Bucket=r2_bucket,
+        Key=filename,
+        Body=file_bytes,
+        ContentType="image/jpeg",
     )
+
+    image_url = f"{r2_endpoint}/{r2_bucket}/{filename}"
 
     with db.cursor() as cur:
-
         cur.execute(
             """
-            INSERT INTO photos (
-                assignment_id,
-                stage,
-                filename,
-                uploaded_at
-            )
+            INSERT INTO photos (assignment_id, stage, filename, uploaded_at)
             VALUES (%s, %s, %s, %s)
             """,
-            (
-                assignment_id,
-                stage,
-                image_url,
-                now_iso(),
-            ),
+            (assignment_id, stage, image_url, now_iso()),
         )
 
-    db.commit()
+    db.commit() 
     
 
 def get_assignment_photos(assignment_id: int):
