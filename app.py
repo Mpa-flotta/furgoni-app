@@ -197,6 +197,7 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
     r2_endpoint = os.environ.get("R2_ENDPOINT")
     r2_access_key = os.environ.get("R2_ACCESS_KEY_ID")
     r2_secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+    r2_public_url = os.environ.get("R2_PUBLIC_URL")
 
     s3_client = boto3.client(
         "s3",
@@ -214,8 +215,7 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
         ContentType="image/jpeg",
     )
 
-    r2_public_url = os.environ.get("R2_PUBLIC_URL")
-image_url = f"{r2_public_url}/{filename}"
+    image_url = f"{r2_public_url}/{filename}"
 
     with db.cursor() as cur:
         cur.execute(
@@ -226,8 +226,8 @@ image_url = f"{r2_public_url}/{filename}"
             (assignment_id, stage, image_url, now_iso()),
         )
 
-    db.commit() 
-    
+    db.commit()
+
 
 def get_assignment_photos(assignment_id: int):
     db = get_db()
