@@ -214,7 +214,8 @@ def save_single_photo(file_obj, assignment_id: int, stage: str) -> None:
         ContentType="image/jpeg",
     )
 
-    image_url = f"{r2_endpoint}/{r2_bucket}/{filename}"
+    r2_public_url = os.environ.get("R2_PUBLIC_URL")
+image_url = f"{r2_public_url}/{filename}"
 
     with db.cursor() as cur:
         cur.execute(
