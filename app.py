@@ -556,6 +556,8 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "active_count": active_count,
         "completed_count": completed_count,
         "appalto_nome": current_appalto_nome(),
+        "photos_by_assignment": {},
+        "photo_labels": PHOTO_LABELS,
     }
 
 
