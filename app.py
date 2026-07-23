@@ -454,7 +454,7 @@ def init_db() -> None:
 # DASHBOARD DATA
 # =========================
 
- def fetch_dashboard_data() -> dict[str, Any]:
+def fetch_dashboard_data() -> dict[str, Any]:
     db = get_db()
     appalto_id = current_appalto_id()
 
@@ -557,7 +557,7 @@ def init_db() -> None:
         "completed_count": completed_count,
         "appalto_nome": current_appalto_nome(),
     }
-    
+
 
 # =========================
 # AUTH
