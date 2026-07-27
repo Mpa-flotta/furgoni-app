@@ -508,11 +508,33 @@ def fetch_dashboard_data() -> dict[str, Any]:
             JOIN vans v ON v.id = a.van_id
             WHERE a.appalto_id = %s
             ORDER BY a.created_at DESC, a.id DESC
-            LIMIT 300
             """,
             (appalto_id,),
-        )
+         )
         assignments = cur.fetchall()
+
+        assignment_ids = [a["id"] for a in assignments]
+
+        photos_by_assignment = {}
+
+        if assignment_ids:
+            cur.execute(
+                """
+                SELECT *
+                FROM photos
+                WHERE assignment_id = ANY(%s)
+                ORDER BY assignment_id, id ASC
+                """,
+                (assignment_ids,),
+            )
+
+            all_photos = cur.fetchall()
+
+            for photo in all_photos:
+                photos_by_assignment.setdefault(
+                    photo["assignment_id"],
+                    []
+                ).append(photo)
 
         cur.execute(
             """
@@ -522,7 +544,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
               AND status IN ('Assegnato', 'Preso in carico')
             """,
             (appalto_id,),
-        )
+         )
         active_count = cur.fetchone()["count"]
 
         cur.execute(
@@ -533,15 +555,15 @@ def fetch_dashboard_data() -> dict[str, Any]:
               AND status = 'Riconsegnato'
             """,
             (appalto_id,),
-        )
+         )
         completed_count = cur.fetchone()["count"]
 
     grouped_assignments = {}
     daily_counts = {}
 
-    for assignment in assignments:
-        day_key = only_date(assignment["created_at"])
-        grouped_assignments.setdefault(day_key, []).append(assignment)
+    for a in assignments:
+        day_key = only_date(a["created_at"])
+        grouped_assignments.setdefault(day_key, []).append(a)
 
     for day_key, items in grouped_assignments.items():
         unique_plates = {item["plate"] for item in items}
@@ -556,7 +578,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "active_count": active_count,
         "completed_count": completed_count,
         "appalto_nome": current_appalto_nome(),
-        "photos_by_assignment": {},
+        "photos_by_assignment": photos_by_assignment,
         "photo_labels": PHOTO_LABELS,
     }
 
