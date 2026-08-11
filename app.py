@@ -1534,18 +1534,18 @@ def genera_pdf(assignment_id: int):
 
     def draw_photo_grid(photo_keys):
 
-     nonlocal y
+        nonlocal y
 
-     start_x = margin
-     col_gap = 20
+        start_x = margin
+        col_gap = 20
 
-     img_width = 220
-     img_height = 140
+        img_width = 220
+        img_height = 140
 
-     x_positions = [
+        x_positions = [
         start_x,
         start_x + img_width + col_gap,
-    ]
+        ]
 
      current_col = 0
 
