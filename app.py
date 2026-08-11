@@ -1533,100 +1533,100 @@ def genera_pdf(assignment_id: int):
         y -= 30
 
     def draw_photo_grid(photo_keys):
-
         nonlocal y
-
+    
         start_x = margin
         col_gap = 20
-
+    
         img_width = 220
         img_height = 140
-
+    
         x_positions = [
-        start_x,
-        start_x + img_width + col_gap,
+            start_x,
+            start_x + img_width + col_gap,
         ]
-
-     current_col = 0
-
-    for stage_key in photo_keys:
-
-        photo = photos_by_stage.get(stage_key)
-
-        if not photo:
-            continue
-
-        try:
-            photo_url = photo["filename"]
-
-            if photo_url.startswith("/uploads/"):
+    
+        current_col = 0
+    
+        for stage_key in photo_keys:
+            photo = photos_by_stage.get(stage_key)
+    
+            if not photo:
                 continue
-
-            with urllib.request.urlopen(photo_url, timeout=15) as response:
-                image_bytes = response.read()
-
-            img = ImageReader(io.BytesIO(image_bytes))
-
-            x = x_positions[current_col]
-            draw_y = y - img_height
-
-            pdf.drawImage(
-                img,
-                x,
-                draw_y,
-                width=img_width,
-                height=img_height,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
-
-            pdf.setFont("Helvetica", 9)
-
-            pdf.drawString(
-                x,
-                draw_y - 12,
-                PHOTO_LABELS.get(stage_key, stage_key),
-            )
-
-            current_col += 1
-
-            if current_col > 1:
-                current_col = 0
-                y -= 190
-
-                if y < 220:
-                    pdf.showPage()
-                    y = page_height - 40
-
-        except Exception as e:
-            x = x_positions[current_col]
-            draw_y = y - img_height
-
-            pdf.setFont("Helvetica", 8)
-            pdf.drawString(
-                x,
-                draw_y + 70,
-                "Foto non caricabile nel PDF"
-            )
-
-            pdf.drawString(
-                x,
-                draw_y + 55,
-                str(e)[:80]
-            )
-
-            current_col += 1
-
-            if current_col > 1:
-                current_col = 0
-                y -= 190
-
-                if y < 220:
-                    pdf.showPage()
-                    y = page_height - 40
-
-    if current_col != 0:
-        y -= 190
+    
+            try:
+                photo_url = photo["filename"]
+    
+                if photo_url.startswith("/uploads/"):
+                    continue
+    
+                with urllib.request.urlopen(photo_url, timeout=15) as response:
+                    image_bytes = response.read()
+    
+                img = ImageReader(io.BytesIO(image_bytes))
+    
+                x = x_positions[current_col]
+                draw_y = y - img_height
+    
+                pdf.drawImage(
+                    img,
+                    x,
+                    draw_y,
+                    width=img_width,
+                    height=img_height,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+    
+                pdf.setFont("Helvetica", 9)
+    
+                pdf.drawString(
+                    x,
+                    draw_y - 12,
+                    PHOTO_LABELS.get(stage_key, stage_key),
+                )
+    
+                current_col += 1
+    
+                if current_col > 1:
+                    current_col = 0
+                    y -= 190
+    
+                    if y < 220:
+                        pdf.showPage()
+                        y = page_height - 40
+    
+            except Exception as e:
+                x = x_positions[current_col]
+                draw_y = y - img_height
+    
+                pdf.setFont("Helvetica", 8)
+    
+                pdf.drawString(
+                    x,
+                    draw_y + 70,
+                    "Foto non caricabile nel PDF"
+                )
+    
+                pdf.drawString(
+                    x,
+                    draw_y + 55,
+                    str(e)[:80]
+                )
+    
+                current_col += 1
+    
+                if current_col > 1:
+                    current_col = 0
+                    y -= 190
+    
+                    if y < 220:
+                        pdf.showPage()
+                        y = page_height - 40
+    
+        if current_col != 0:
+            y -= 190
+    
 
     # =========================
     # LOGO
