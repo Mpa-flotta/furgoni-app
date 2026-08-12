@@ -1532,7 +1532,7 @@ def genera_pdf(assignment_id: int):
 
         y -= 30
 
-def draw_photo_grid(photo_keys):
+    def draw_photo_grid(photo_keys):
            
         nonlocal y
 
