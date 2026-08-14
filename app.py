@@ -454,13 +454,30 @@ def init_db() -> None:
 # DASHBOARD DATA
 # =========================
 
-def fetch_dashboard_data() -> dict[str, Any]:
+def fetch_dashboard_data(filter_date_raw: str = "") -> dict[str, Any]:
     db = get_db()
     appalto_id = current_appalto_id()
 
     release_stale_vans(appalto_id)
 
+    # Se non viene scelta una data, mostra solo oggi
+    if filter_date_raw:
+        try:
+            selected_date = datetime.strptime(
+                filter_date_raw,
+                "%Y-%m-%d"
+            ).strftime("%Y-%m-%d")
+        except ValueError:
+            selected_date = now_dt().strftime("%Y-%m-%d")
+    else:
+        selected_date = now_dt().strftime("%Y-%m-%d")
+
+    day_start = selected_date + " 00:00:00"
+    day_end = selected_date + " 23:59:59"
+
     with db.cursor() as cur:
+
+        # AUTISTI
         cur.execute(
             """
             SELECT *
@@ -472,6 +489,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
         )
         drivers = cur.fetchall()
 
+        # FURGONI
         cur.execute(
             """
             SELECT *
@@ -483,6 +501,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
         )
         vans = cur.fetchall()
 
+        # SOLO LE PRATICHE DEL GIORNO RICHIESTO
         cur.execute(
             """
             SELECT
@@ -507,14 +526,17 @@ def fetch_dashboard_data() -> dict[str, Any]:
             JOIN drivers d ON d.id = a.driver_id
             JOIN vans v ON v.id = a.van_id
             WHERE a.appalto_id = %s
+              AND a.created_at >= %s
+              AND a.created_at <= %s
             ORDER BY a.created_at DESC, a.id DESC
             """,
-            (appalto_id,),
-         )
+            (appalto_id, day_start, day_end),
+        )
+
         assignments = cur.fetchall()
 
+        # FOTO SOLO DELLE PRATICHE VISUALIZZATE
         assignment_ids = [a["id"] for a in assignments]
-
         photos_by_assignment = {}
 
         if assignment_ids:
@@ -536,6 +558,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
                     []
                 ).append(photo)
 
+        # CONTATORI GENERALI
         cur.execute(
             """
             SELECT COUNT(*) AS count
@@ -544,7 +567,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
               AND status IN ('Assegnato', 'Preso in carico')
             """,
             (appalto_id,),
-         )
+        )
         active_count = cur.fetchone()["count"]
 
         cur.execute(
@@ -555,7 +578,7 @@ def fetch_dashboard_data() -> dict[str, Any]:
               AND status = 'Riconsegnato'
             """,
             (appalto_id,),
-         )
+        )
         completed_count = cur.fetchone()["count"]
 
     grouped_assignments = {}
@@ -581,7 +604,6 @@ def fetch_dashboard_data() -> dict[str, Any]:
         "photos_by_assignment": photos_by_assignment,
         "photo_labels": PHOTO_LABELS,
     }
-
 
 # =========================
 # AUTH
@@ -640,10 +662,15 @@ def logout():
 @app.route("/dashboard")
 @admin_required
 def dashboard():
-    data = fetch_dashboard_data()
 
     sort_mode = request.args.get("sort", "date")
     filter_date_raw = request.args.get("filter_date", "").strip()
+
+    # Se non è stata scelta una data, usa oggi
+    if not filter_date_raw:
+        filter_date_raw = now_dt().strftime("%Y-%m-%d")
+
+    data = fetch_dashboard_data(filter_date_raw)
 
     if sort_mode == "alpha":
         for day in data["grouped_assignments"]:
@@ -652,24 +679,11 @@ def dashboard():
                 key=lambda x: x["driver_name"].split()[-1].lower()
             )
 
-    if filter_date_raw:
-        try:
-            dt = datetime.strptime(filter_date_raw, "%Y-%m-%d")
-            filter_date = dt.strftime("%d/%m/%Y")
-
-            data["grouped_assignments"] = {
-                day: items
-                for day, items in data["grouped_assignments"].items()
-                if day == filter_date
-            }
-        except ValueError:
-            pass
-
     data["sort_mode"] = sort_mode
     data["filter_date_raw"] = filter_date_raw
 
     return render_template("dashboard.html", **data)
-
+    
 
 @app.route("/admin/manage", methods=["GET", "POST"])
 @admin_required
